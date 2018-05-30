@@ -170,7 +170,7 @@ int main(int argc, char **argv)
     	free(indices);
     	free(row_sense);
     	free(obj_coef1);
-    	status = CPXwriteprob (env, lp1, &s[0], "MPS");
+/*    	status = CPXwriteprob (env, lp1, &s[0], "MPS");*/
     }
     	
 /*    	status = CPXwriteprob (env, lp1, "myprob2.lp", "LP");*/
@@ -275,7 +275,16 @@ int main(int argc, char **argv)
 	        }
     	}
     	
-/*    	status = CPXwriteprob (env, lp1, "multiobj_prob.mps", "MPS");*/
+    	status = CPXwriteprob (env, lp1, "multiobj_prob_MIP.mps", "MPS");
+    	
+    	status = CPXchgprobtype(env, lp1, CPXPROB_LP);
+      	if ( status ) 
+      	{
+        		printf ("Failed to change the problem from a MIP to an LP.\n");
+        		exit(0);
+      	}
+      	
+      	status = CPXwriteprob (env, lp1, "multiobj_prob_LP.mps", "MPS");
     	
     	/*************************************************************************************/
     	/******************************* Set coefficients for second new row *****************/
