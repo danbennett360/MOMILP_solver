@@ -146,7 +146,7 @@ int main(int argc, char **argv)
     		printf ("When trying to get objective sense, found that no problem object exists, error code %d\n", status);
     		exit(0);
     	}
-    	else if( status == 2)	// Problem is maximization type - switch to maximization
+    	else if( status == -1)	// Problem is maximization type - switch to minimization
     	{	
     		for(i=0;i<cur_numcols;i++)
     		{
@@ -170,7 +170,7 @@ int main(int argc, char **argv)
     	free(indices);
     	free(row_sense);
     	free(obj_coef1);
-/*    	status = CPXwriteprob (env, lp1, &s[0], "MPS");*/
+/*    	status = CPXwriteprob (env, lp1, &s[0], "LP");*/
     }
     	
 /*    	status = CPXwriteprob (env, lp1, "myprob2.lp", "LP");*/
