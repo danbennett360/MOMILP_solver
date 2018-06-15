@@ -20,6 +20,7 @@ of nondominated solutions.*/
 #include <string>
 #include <iterator>
 #include <iostream>
+#include <algorithm>
 #include "simplex_class.h"
 #include "multiobjective_solver.h"
 
@@ -43,7 +44,8 @@ class MultiobjectiveProblem
 //    	void PostProcessDichotomicSearch(vector<Simplex> & simplices);
     	void ChangeTempObjCoefs(int i);
     	void ChangeTempObjCoefs(const vector<double> & v);
-    	double epsilon = .0000001;
+    	double epsilon = .01;
+//    	double epsilon2 = .0000001;
     	double infinity = CPX_INFBOUND;
 /************************************************/
 /*      Parameter values that are 
@@ -60,6 +62,7 @@ class MultiobjectiveProblem
 	    void 	    AddLP(CPXLPptr lp);
 	    int 		GetNumObj();
 	    CPXLPptr 	GetLP(int i);
+	    CPXLPptr 	GetMainLP();
 	    void 	    ConvertLPs();
 	    void 	    SetNumRowsAndCols();
 	    void        AddRowsForObjectives();
@@ -84,5 +87,13 @@ void SplitSimplexInTwoUsingPoint(const Simplex & s, const vector<double> & point
 
 void CheckForSimplicesThatNeedReplaced( vector<Simplex> & simplexStack, int & simplexIndex, int & newPointIndex, const int & numObjectives, 
                                         const vector<double> & newPoint, bool normalize, double epsilon);
+                                        
+void scanForRepeats(const vector<Simplex> & simplexStack);
+
+bool PointIsInFrontOfAnAdjacent(const vector<Simplex> & simplexStack, const Simplex & simp, const vector<double> & point, const double & epsilon);
+
+void WritePoints(const vector<Simplex> & simplexStack); 
+
+vector<string> GetVarNames(const CPXENVptr & env, const CPXLPptr & lp, int numCols);
 
 #endif

@@ -87,18 +87,11 @@ void Simplex::GenerateNormal()
         {
             val = -1.*Determinant(submat);
         }
+/*        cout << "Val: " << val << "\tNormal Size: " << normal.size() << "\tisZero: " << isZero << "\tisPositive: " << isPositive << "\tallSameSign: " << allSameSign << endl;*/
         if(normal.size() > 0 && !isZero && ((val < 0 && isPositive) || (val > 0 && !isPositive))) allSameSign = false;
-        if(val < 0) isPositive = false;
+        if(val < -epsilon) isPositive = false;
         if(abs(val) > epsilon) isZero = false;
-        normal.push_back(val);
-    }
-    
-    if(DEBUG) 
-    {
-        cout << "\%Calculated normal: ";
-        
-        for(int i = 0; i < dimension; i++) cout << normal[i] << "\t";
-        cout << endl;
+        normal.push_back(val); 
     }
     
     if(allSameSign && !isPositive)
@@ -107,6 +100,14 @@ void Simplex::GenerateNormal()
         isPositive = true;
     }
 /*    else if(!allSameSign) cout << "There is an error! A normal vector did not have all positive weights!" << endl;*/
+
+    if(DEBUG) 
+    {
+        cout << "\%Calculated normal: ";
+        
+        for(int i = 0; i < dimension; i++) cout << normal[i] << "\t";
+        cout << endl;
+    }
     
     return;
 }
@@ -185,6 +186,11 @@ void Simplex::NormalizeNormal()
     for(int i = 0; i < dimension; i++)
     {
         normal[i] = normal[i]/magnitude;
+        if(isnan(normal[i]))
+        {
+            cout << "Error. There is a normal component that doesn't make sense. Exiting!\n";
+            exit(0);
+        }
     }
     
     return;
@@ -196,6 +202,8 @@ void Simplex::Reset()
     normal.resize(0);
     extremesAreDummies.resize(0);
     numDummies = 0;
+    isPositive = true;
+    saveForSolution = false;
     
     return;
 }
@@ -249,18 +257,21 @@ void Simplex::WriteOctaveCodeToPlotSimplex() const
         for(int j = 0; j < dimension; j++) midpoint[i] += (1./3.)*extremePoints[j][i];
     }
     
-    cout << "plot3(";
-    for(int i = 0; i < dimension; i++) 
+    if(showNormalsInPlots)
     {
-        if(i!=dimension-1) cout << "[" << midpoint[i] << " " << midpoint[i] - 1000*norm[i] << "],";
-        else cout << "[" << midpoint[i] << " " << midpoint[i] - 1000*norm[i] << "]";
+        cout << "plot3(";
+        for(int i = 0; i < dimension; i++) 
+        {
+            if(i!=dimension-1) cout << "[" << midpoint[i] << " " << midpoint[i] - 1000*norm[i] << "],";
+            else cout << "[" << midpoint[i] << " " << midpoint[i] - 1000*norm[i] << "]";
+        }
+    /*    for(int i = 0; i < dimension; i++) */
+    /*    {*/
+    /*        if(i != dimension-1) cout << midpoint[i] - 10*norm[i] << ",";*/
+    /*        else cout << midpoint[i] - 10*norm[i];*/
+    /*    }  */
+        cout << ")" << endl;
     }
-/*    for(int i = 0; i < dimension; i++) */
-/*    {*/
-/*        if(i != dimension-1) cout << midpoint[i] - 10*norm[i] << ",";*/
-/*        else cout << midpoint[i] - 10*norm[i];*/
-/*    }  */
-    cout << ")" << endl;
     
     return;
 }
@@ -282,6 +293,7 @@ Simplex Simplex::FindAdjacentContainingOriginalPoints(const vector<Simplex> & si
     vector<bool> matches(dimension,false);
     
 /*    bool DEBUG = true;*/
+/*    bool DEBUG = false;*/
     
     newPointIndex = -1;
     
@@ -309,14 +321,14 @@ Simplex Simplex::FindAdjacentContainingOriginalPoints(const vector<Simplex> & si
         if(k < int(simplices.size()))
         {
             temp = simplices[k];
-            if(DEBUG) 
-            {
-                cout << "^^^^^^^^^^^^" << endl;
-                PrintData();
-                cout << "^^^^^^^^^^^^" << endl;
-                temp.PrintData();
-                cout << "^^^^^^^^^^^^" << endl;
-            }
+/*            if(DEBUG) */
+/*            {*/
+/*                cout << "^^^^^^^^^^^^" << endl;*/
+/*                PrintData();*/
+/*                cout << "^^^^^^^^^^^^" << endl;*/
+/*                temp.PrintData();*/
+/*                cout << "^^^^^^^^^^^^" << endl;*/
+/*            }*/
             for(int i = 0; i < dimension; i++) matches[i] = false;
             k++;
             l = 0;
@@ -405,7 +417,7 @@ int Simplex::GetNumDummyPoints()
     return numDummies;
 }
 
-vector<bool> Simplex::ExtremesAreDummies()
+vector<bool> Simplex::ExtremesAreDummies() const
 {
     return extremesAreDummies;
 }
@@ -415,4 +427,15 @@ int Simplex::GetPointIndex(const vector<double> & point)
     int i = 0;
     while(extremePoints[i] != point) i++;
     return i;
+}
+
+void Simplex::SaveForSolution()
+{
+    saveForSolution = true;
+    return;
+}
+
+bool Simplex::GetSaveForSolution() const
+{
+    return saveForSolution;
 }

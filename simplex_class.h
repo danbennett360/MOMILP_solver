@@ -51,6 +51,8 @@ class Simplex
         double epsilon = .0000001;
         double infinity = CPX_INFBOUND;
         int numDummies = 0;
+        bool showNormalsInPlots = false;
+        bool saveForSolution = false;
   public:
     	Simplex(int i);
     	Simplex() : Simplex(2) {};
@@ -68,8 +70,10 @@ class Simplex
     	Simplex FindAdjacentContainingOriginalPoints(const vector<Simplex> & simplices, int & simplexIndex, int & newPointIndex, int ignoreIndex, bool isIn) const;
     	int GetDimension() const;
     	int GetNumDummyPoints();
-    	vector<bool> ExtremesAreDummies();
+    	vector<bool> ExtremesAreDummies() const;
     	int GetPointIndex(const vector<double> & point);
+    	void SaveForSolution();
+    	bool GetSaveForSolution() const;
 };
 
 double Determinant(const vector< vector<double> > & matrix);

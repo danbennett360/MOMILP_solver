@@ -16,8 +16,8 @@ SOLSTRUCT=tree
 LDFLAGS= -O3 -g -L$(CPLEX_DIR)/lib/x86-64_linux/static_pic -lcplex -lpthread -lm -std=c++11 -Wall -Wextra -Wuninitialized -Wshadow
 CFLAGS=  -O3 -g -I$(CPLEX_DIR)/include/ilcplex -std=c++11 -Wall -Wextra -Wuninitialized -Wshadow
 
-OBJ =  	    multiobjective_solver.o problem_class.o simplex_class.o sydneys_class.o
-HEADER = 	multiobjective_solver.h problem_class.h simplex_class.h sydneys_class.h
+OBJ =  	    multiobjective_solver.o problem_class.o simplex_class.o sydneys_class.o point_class.o
+HEADER = 	multiobjective_solver.h problem_class.h simplex_class.h sydneys_class.h point_class.h
 
 all: ${HOMEBIN}/MOS
 

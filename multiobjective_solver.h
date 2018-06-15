@@ -27,5 +27,7 @@ using namespace std;
 //CPXLPptr   lp=NULL;
 
 extern bool DEBUG;
+extern bool SCAN_FOR_REPEATS;
+extern bool SAVE_POINTS;
 
 #endif

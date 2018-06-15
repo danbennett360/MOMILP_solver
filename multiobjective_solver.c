@@ -7,12 +7,15 @@ Initially we will just build a data structure for storing the (minimally excessi
 of nondominated solutions.*/
 
 #include "cplex.h"
+#include "point_class.h"
 #include "sydneys_class.h"
 #include "simplex_class.h"
 #include "problem_class.h"
 #include "multiobjective_solver.h"
 
 bool DEBUG = false;
+bool SCAN_FOR_REPEATS = false;
+bool SAVE_POINTS = true;
 
 int main(int argc, char **argv)
 {
@@ -121,6 +124,7 @@ int main(int argc, char **argv)
   	// parameter values
   	/******************************************************************/
 
+    if(DEBUG) cout << "setting param vals" << endl;
     myProb.SetParamVals(argc, argv);
 
     /******************************************************************/
@@ -130,7 +134,12 @@ int main(int argc, char **argv)
     		 the objective function values.
     	*****************************************************/
 	
-	if(myProb.StoreObjectivesInMainProb()) myProb.AddRowsForObjectives();
+	
+	if(myProb.StoreObjectivesInMainProb()) 
+	{
+	    if(DEBUG) cout << "adding rows for objectives" << endl;
+	    myProb.AddRowsForObjectives();
+	}
   	
   	/********* Initialization *****************************************/
   	
@@ -141,7 +150,10 @@ int main(int argc, char **argv)
   	/******************************************************************/
 
     /********* TEMPORARY CODE *****************************************/
+    
+    if(DEBUG) status = CPXwriteprob (env, myProb.GetMainLP(), "overall_prob.lp", "LP");
   	
+  	if(DEBUG) cout << "finding initial simplices" << endl;
     vector<Simplex> t = myProb.DichotomicSearch();
   				
   	/******************************************************************/
