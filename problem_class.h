@@ -44,7 +44,7 @@ class MultiobjectiveProblem
 //    	void PostProcessDichotomicSearch(vector<Simplex> & simplices);
     	void ChangeTempObjCoefs(int i);
     	void ChangeTempObjCoefs(const vector<double> & v);
-    	double epsilon = .01;
+    	double epsilon = .05;
 //    	double epsilon2 = .0000001;
     	double infinity = CPX_INFBOUND;
 /************************************************/
@@ -58,22 +58,26 @@ class MultiobjectiveProblem
   public:
     	void 	    SetEnv(CPXENVptr e);
     	CPXENVptr	GetEnv();
-	    void 	    SetNumObj(int a);
-	    void 	    AddLP(CPXLPptr lp);
-	    int 		GetNumObj();
-	    CPXLPptr 	GetLP(int i);
-	    CPXLPptr 	GetMainLP();
-	    void 	    ConvertLPs();
-	    void 	    SetNumRowsAndCols();
-	    void        AddRowsForObjectives();
-	    void        SetParamVals(int argc, char **argv);
-	    bool        StoreObjectivesInMainProb();
-	    bool        NormalizeObjectiveMultipliers();
-	    bool        UseLexicographicOptimization();
-	    vector<Simplex> DichotomicSearch();
-	    vector<Simplex> DichotomicSearch(const vector<int> & indices, const vector<int> & vals);
-	    vector<double> GetObjectiveValues(const CPXLPptr & lp);
-	    vector<double> LexicographicMinimization(int i);
+	void 	    SetNumObj(int a);
+	void 	    AddLP(CPXLPptr lp);
+	int 		GetNumObj();
+	CPXLPptr 	GetLP(int i);
+	CPXLPptr 	GetMainLP();
+	void 	    ConvertLPs();
+	void 	    SetNumRowsAndCols();
+	void        AddRowsForObjectives();
+	void        SetParamVals(int argc, char **argv);
+	bool        StoreObjectivesInMainProb();
+	bool        NormalizeObjectiveMultipliers();
+	bool        UseLexicographicOptimization();
+	vector<Simplex> DichotomicSearch();
+	vector<Simplex> DichotomicSearch(const vector<int> & indices, const vector<int> & vals);
+	vector<double> GetObjectiveValues(const CPXLPptr & lp);
+	vector<double> LexicographicMinimization(int i);
+
+	// bennett 7/18
+	void 	Epsilon(double e);
+	double	Epsilon(void) const;
 };
 
 void AddNewSimplices(   vector<Simplex> & simplexStack, const Simplex & currentSimplex, const vector<double> & point, bool normalize, bool useAdjacent, 

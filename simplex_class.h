@@ -56,6 +56,11 @@ class Simplex
   public:
     	Simplex(int i);
     	Simplex() : Simplex(2) {};
+
+	// bennett 7/18
+	double Epsilon(void) const;
+	void Epsilon(double e);
+
     	void AddExtreme(const vector<double> & v, bool normalize);
     	void PrintData() const;
     	void NormalizeNormal();

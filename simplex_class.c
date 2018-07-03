@@ -439,3 +439,13 @@ bool Simplex::GetSaveForSolution() const
 {
     return saveForSolution;
 }
+
+// bennett 7/18
+void Simplex::Epsilon(double e) {
+    epsilon = e;
+}
+
+double Simplex::Epsilon(void) const{
+    return epsilon;
+}
+

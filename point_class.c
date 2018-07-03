@@ -4,7 +4,7 @@
 #include <fstream>
 #include "point_class.h"
 
-Point::Point(const vector<double> & p, double *vals, int valsSize)
+Point::Point(const vector<double> & p, double *vals, int valsSize, double epsilon )
 {
     point = p;
     
@@ -16,6 +16,19 @@ Point::Point(const vector<double> & p, double *vals, int valsSize)
             nonzeroPrimalValues.push_back(vals[i]);
         }
     }
+
+    pointCloseEpsilon = epsilon;
+    return;
+}
+
+// bennett 6/18
+bool Point::operator == (const Point & other) {
+    for(size_t i=0;i<point.size();i++) {
+        if (abs(point[i]-other.point[i]) > pointCloseEpsilon) {
+            return false;
+         }
+    }
+    return true;
 }
 
 void Point::WritePointToFile(const string & filename, const vector<string> & varNames, bool append)
@@ -25,12 +38,25 @@ void Point::WritePointToFile(const string & filename, const vector<string> & var
 	else fout.open(filename.c_str(), ofstream::trunc);
 	
 	fout << "[ ";
-	for(unsigned int i = 0; i < point.size(); i++) fout << point[i] << " ";
+	for(unsigned int i = 0; i < point.size(); i++) 
+	    fout << point[i] << " ";
 	fout << "] ";
-	for(unsigned int i = 0; i < nonzeroPrimalIndices.size(); i++) fout << varNames[nonzeroPrimalIndices[i]] << " = " << nonzeroPrimalValues[i] << " ";
+	for(unsigned int i = 0; i < nonzeroPrimalIndices.size(); i++) 
+	     fout << varNames[nonzeroPrimalIndices[i]] << " = " << nonzeroPrimalValues[i] << " ";
 	fout << endl;
 	
 	fout.close();
 
     return;
+}
+
+// bennett 6/18 for ==
+void Point::Epsilon(double e) {
+    pointCloseEpsilon = e;
+    return;
+}
+
+// bennett 6/18 for ==
+double Point::Epsilon(void) const {
+    return pointCloseEpsilon;
 }

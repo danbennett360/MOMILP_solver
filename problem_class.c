@@ -259,6 +259,23 @@ void MultiobjectiveProblem::SetParamVals(int argc, char **argv)
                 }
                 i++;
             }
+	    // bennett 7/18
+            else if(!strcmp(argv[i],"-epsilon")) {
+                i++;
+		if (argv[i] != nullptr) {
+		    try {
+		       epsilon = stod(argv[i]);
+		       i++;
+		    } catch(const invalid_argument & ia) {
+		       
+                        cout << "Invalid value for flag '-epsilon'" <<  argv[i] 
+			     << " , ignoring. Valid values are positive dobules." << endl;
+		    }
+		} else {
+                    cout << "Invalid value for flag '-epsilon'" 
+		         << ", ignoring. Valid values are positive dobules." << endl;
+		}
+            }
             else if(!strcmp(argv[i],"-normalize"))
             {
                 i++;
@@ -576,13 +593,21 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
 /*        cout << "**************************" << endl;*/
 /*    }*/
 
+    // bennett 6/18
     if(SAVE_POINTS) 
     {
        varNames = GetVarNames(env, tempProb, numCols);
-       for(unsigned int i = 0; i < pointStack.size(); i++) 
-       {
-            if(!i) pointStack[i].WritePointToFile("points.txt", varNames, false);
-            else pointStack[i].WritePointToFile("points.txt", varNames, true);
+
+       vector<Point>tmp;
+       bool append = false;
+
+       for (auto & tmpPt : pointStack) {
+          if (find(tmp.begin(),tmp.end(),tmpPt) == tmp.end())  {
+	      tmp.push_back(tmpPt);
+	      tmpPt.WritePointToFile("points.txt", varNames, append);
+	      append = true;
+	  }
+
        }
     }
     
@@ -1268,4 +1293,14 @@ vector<string> GetVarNames(const CPXENVptr & env, const CPXLPptr & lp, int numCo
     free(cur_colnamestore);
     
     return retVec;  
+}
+
+// bennett 7/18
+void MultiobjectiveProblem::Epsilon(double e) {
+    epsilon= e;
+    return;
+}
+
+double MultiobjectiveProblem::Epsilon(void) const{
+    return epsilon;
 }
