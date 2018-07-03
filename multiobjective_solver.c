@@ -22,9 +22,15 @@ int main(int argc, char **argv)
 	/* initialize Cplex environment *********************************/
 	int status = 0;
 	string phrase = "";
+	string phrase2 = "";
+	string filename1 = "", filename2 = "";
+	string temp = "";
 	MultiobjectiveProblem myProb;
 	CPXENVptr  env = NULL;
     CPXLPptr   lp = NULL;
+    ifstream fin;
+    ofstream fout;
+    bool done = false;
 	
   	env = CPXopenCPLEX(&status);
 
@@ -76,25 +82,89 @@ int main(int argc, char **argv)
   	/******************************************************************/
   	
   	/** Create test Problems and read them in from the model files ****/
+    
+    phrase = argv[2];
+    phrase = phrase.substr(phrase.find("."));
+    filename1 = argv[2];
+    filename2 = "temp0.mop";
+    
+    if(phrase[1] == 'm') // assume we are working with a single *.mops file
+    {
+        for(int i = 0; i < myProb.GetNumObj(); i++)
+	    {
+	        if(i != 0) 
+	        {
+	            done = false;
+	            fin.open(filename1);
+	            fout.open(filename2);
+	            while (getline(fin, phrase))
+                {
+                    phrase2 = regex_replace(phrase, regex("^ +"), "");
+                    if(!done && ((phrase2[0] == 'N' || phrase2[0] == 'n') && (phrase2[1] == ' ' || phrase2[1] == '\t'))) 
+                    {
+/*                        cout << phrase2 << endl;*/
+                        temp = phrase;
+                        done = true;
+                    }
+                    else
+                    {
+                        if(temp.length() && (phrase2[0] != 'N' && phrase2[0] != 'n' && phrase2[0] != 'L' && phrase2[0] != 'l' && phrase2[0] != 'G' && phrase2[0] != 'g'))
+                        {
+                            fout << temp << endl;
+                            temp = "";
+                        }
+                        fout << phrase << endl;
+                    }
+                }
+                fin.close();
+                fout.close();
+                filename1 = filename2;
+                filename2[4]++;
+	        }
+	      	lp = CPXcreateprob (env,&status,filename1.c_str());
+	      	if(lp==NULL) 
+	      	{
+	        		printf("CPXcreateprob, Failed to create LP%d, error code %d\n", i+1, status);
+	        		exit(0);
+	        }
+	        	
+	        status = CPXreadcopyprob(env,lp,filename1.c_str(),NULL);
+	      	if ( status ) 
+	      	{
+	        		printf ("Could not read input %d, exiting. Error code: %d\n", i+1, status);
+	        		exit(0);
+	        }
 
-	for(int i = 0; i < myProb.GetNumObj(); i++)
-	{
-	  	lp = CPXcreateprob (env,&status,argv[i+2]);
-	  	if(lp==NULL) 
-	  	{
-	    		printf("CPXcreateprob, Failed to create LP%d, error code %d\n", i+1, status);
-	    		exit(0);
-	    }
-	    	
-	    status = CPXreadcopyprob(env,lp,argv[i+2],NULL);
+		    myProb.AddLP(lp);
+        }
+        filename2[4] = '0';
+        for(int i = 0; i < myProb.GetNumObj() - 1; i++)
+        {
+            remove(filename2.c_str());
+            filename2[4]++;
+        }
+    }
+    else // assume we are working with multiple *.lp files
+    {
+	    for(int i = 0; i < myProb.GetNumObj(); i++)
+	    {
+	      	lp = CPXcreateprob (env,&status,argv[i+2]);
+	      	if(lp==NULL) 
+	      	{
+	        		printf("CPXcreateprob, Failed to create LP%d, error code %d\n", i+1, status);
+	        		exit(0);
+	        }
+	        	
+	        status = CPXreadcopyprob(env,lp,argv[i+2],NULL);
 
-	  	if ( status ) 
-	  	{
-	    		printf ("Could not read input %d, exiting. Error code: %d\n", i+1, status);
-	    		exit(0);
-	    }
+	      	if ( status ) 
+	      	{
+	        		printf ("Could not read input %d, exiting. Error code: %d\n", i+1, status);
+	        		exit(0);
+	        }
 
-		myProb.AddLP(lp);
+		    myProb.AddLP(lp);
+        }
     }
     	
 	/******************************************************************/

@@ -24,7 +24,7 @@ Point::Point(const vector<double> & p, double *vals, int valsSize, double epsilo
 // bennett 6/18
 bool Point::operator == (const Point & other) {
     for(size_t i=0;i<point.size();i++) {
-        if (abs(point[i]-other.point[i]) > pointCloseEpsilon) {
+        if (fabs(point[i]-other.point[i]) > pointCloseEpsilon) {
             return false;
          }
     }

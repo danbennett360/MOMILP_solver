@@ -19,7 +19,9 @@ of nondominated solutions.*/
 #include <vector>
 #include <string>
 #include <iterator>
-#include<iostream>
+#include <iostream>
+#include <fstream>
+#include <regex>
 
 using namespace std;
 
