@@ -231,13 +231,23 @@ void MultiobjectiveProblem::AddRowsForObjectives()
 
 void MultiobjectiveProblem::SetParamVals(int argc, char **argv)
 {
-     int i = numObjectives + 2;
+     // bennett 7/4/18
+     // Change needed because the number of input files is no longer fixed.
+     // We always need to have the flag start with a - and consume all arguments.
+     //int i = numObjectives + 2;
+     int i = 2;
+     int limit = min (argc, numObjectives+2);
+     while (i < limit and argv[i][0] != '-') {
+         i++;
+     }
+
      while(i < argc)
      {
         if(argv[i][0] != '-')
         {
             cout << "Invalid Command Line Argument (missing '-'). Exiting." << endl;
-            exit(0);
+	    cout << "Got " << argv[i] << endl;
+            exit(1);
         }
         else
         {
@@ -430,7 +440,7 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
         for(unsigned int i = 0; i < simplexStack.size(); i++) simplexStack[i].WriteOctaveCodeToPlotSimplex();
         cout << "**************************" << endl;
     }
-    
+   
     for(int i = 0; i < numObjectives; i++)
     {
         if(i == 0)
@@ -443,12 +453,13 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
             k = 0;
             while(simplexStack[k].MultiplyPointsByNormal(extremes[i]) >= simplexStack[k].PlaneVal() - epsilon) 
             {
+	        // changed the order of k++ and test so the loop doesn't bomb when k = size.
+                k++;
                 if(k >= simplexStack.size())
                 {
                     cout << "Error, accessing elements past the end of the stack! File: " << __FILE__ << "  Line: " << __LINE__ << "  Exiting!\n";
                     exit(0);
                 }
-                k++;
             }
             currentSimplex = simplexStack[k];
             simplexStack.erase(simplexStack.begin() + k);
