@@ -67,7 +67,31 @@ int cur_numcols;
 int cur_numrows;
 
 
-Point ReadPoint(string line, char * fileName) {
+// read a point from the INNER output file format
+Point ReadPointI(string line) {
+    Point p;
+    stringstream data;
+    char type;
+    double num;
+
+    data.str(line); 
+
+    data >> type;
+
+    // make sure that it is a valid point.
+    if (type == 'V') {
+       data >> num;
+       while (data) {
+           p.point.push_back(num);
+           data >> num;
+       }
+    }
+
+    return p;
+}
+
+// read a point in the Nate and PolyScip Output File Format
+Point ReadPointN(string line, char * fileName) {
     Point p;
     stringstream first, second;
     string junk, name;
@@ -96,7 +120,6 @@ Point ReadPoint(string line, char * fileName) {
        if (x=='=') {
           x = ' ';
        }
-
     }
 
     // extract the other point values
@@ -109,9 +132,12 @@ Point ReadPoint(string line, char * fileName) {
     return p;
 }
 
+enum  FileType {NATE, INNER, UNKNOWN};
+
 void ReadPoints(char *  fileName, vector<Point> &  points){
     ifstream fin;	
     string line;
+    FileType type = UNKNOWN;
     Point p;
 
     fin.open(fileName);
@@ -119,10 +145,37 @@ void ReadPoints(char *  fileName, vector<Point> &  points){
        cerr << "Failed to open " << fileName  << endl;
        exit(1);
     }
-  	
+  
+    line = "";
     getline(fin, line);
+    while (line.size() == 0) {
+        getline(fin, line);
+    }
+
+    if (line[0] == '[') { 
+       type = NATE; 
+    } else if (line[0] == 'C' or line[0] == 'v' or line[0] == 'V') {
+       type = INNER ;
+    }  else {
+       cerr << "Unknown format for file " << fileName << endl;
+       exit (1);
+    }
+
     while(fin){
-        p = ReadPoint(line, fileName);
+        switch (type) {
+	   case NATE:
+               p = ReadPointN(line, fileName);
+	       break;
+	   case INNER:
+               p = ReadPointI(line);
+	       break;
+	   case UNKNOWN:
+	   default:
+	       // shouldn't make it here but ...
+	       cerr << "Error reading input file." << endl;
+	       exit (0);
+	       break;
+	}
 	if (p.point.size() > 0) {
 	    points.push_back(p);
 	}
