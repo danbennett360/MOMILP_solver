@@ -35,6 +35,11 @@ struct Point{
    map<string, double> extra;
 
    bool operator < (const Point & other) {
+      // bennett 7/5/18
+      // set_intersection is based on < for =, man page says  !(a<b) and !(b<a)
+      if (*this==other) {  // if they are within epsilon, they are the same.
+        return false;
+      }
       return point < other.point; 
    }
 
@@ -67,8 +72,8 @@ int cur_numcols;
 int cur_numrows;
 
 
-// read a point from the INNER output file format
-Point ReadPointI(string line) {
+// read a point from the INNER/BenSolve output file format
+Point ReadPointIB(string line, char validC) {
     Point p;
     stringstream data;
     char type;
@@ -79,7 +84,7 @@ Point ReadPointI(string line) {
     data >> type;
 
     // make sure that it is a valid point.
-    if (type == 'V') {
+    if (type == validC) {
        data >> num;
        while (data) {
            p.point.push_back(num);
@@ -132,7 +137,7 @@ Point ReadPointN(string line, char * fileName) {
     return p;
 }
 
-enum  FileType {NATE, INNER, UNKNOWN};
+enum  FileType {NATE, INNER, BENSOLVE,  UNKNOWN};
 
 void ReadPoints(char *  fileName, vector<Point> &  points){
     ifstream fin;	
@@ -156,6 +161,8 @@ void ReadPoints(char *  fileName, vector<Point> &  points){
        type = NATE; 
     } else if (line[0] == 'C' or line[0] == 'v' or line[0] == 'V') {
        type = INNER ;
+    } else if (line[0] == '0' or line[0] == '1') {
+       type = BENSOLVE ;
     }  else {
        cerr << "Unknown format for file " << fileName << endl;
        exit (1);
@@ -167,7 +174,10 @@ void ReadPoints(char *  fileName, vector<Point> &  points){
                p = ReadPointN(line, fileName);
 	       break;
 	   case INNER:
-               p = ReadPointI(line);
+               p = ReadPointIB(line,'V');
+	       break;
+	   case BENSOLVE:
+               p = ReadPointIB(line,'1');
 	       break;
 	   case UNKNOWN:
 	   default:
@@ -237,7 +247,7 @@ void CompareExtras(vector<double> point, map<string, double> a, map<string, doub
    return;
 }
 
-int ShowExtraDifference(vector<Point> a, vector<Point> b ,char * fn1, char * fn2){
+int ShowExtraDifference(vector<Point> a, vector<Point> b, char * fn1, char * fn2){
    vector<Point> common;
    vector<Point>::iterator first, second;
 
@@ -267,8 +277,6 @@ bool Compare(vector<Point> set1, vector<Point> set2, char * fn1, char * fn2, boo
 	cout << "\tPoints unique to each file " << endl;
     }
 
-    sort(set1.begin(), set1.end());
-    sort(set2.begin(), set2.end());
     size1 = ShowDifference(set1, set2, fn1, fn2, showDiff);
     size2 = ShowDifference(set2, set1, fn2, fn1, showDiff);
 
@@ -441,6 +449,10 @@ int main(int argc, char **argv)
 
     ReadPoints(argv[1], set1);
     ReadPoints(argv[2], set2);
+
+    sort(set1.begin(), set1.end());
+    sort(set2.begin(), set2.end());
+
 
     same = Compare(set1, set2, argv[1], argv[2],showDiff);
     if ( compOtherPoints) {
