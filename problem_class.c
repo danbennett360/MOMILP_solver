@@ -465,6 +465,12 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
             simplexStack.erase(simplexStack.begin() + k);
             
         }
+        if(DEBUG)
+        {
+            cout << "Adding point: ";
+            for(unsigned int j = 0; j < extremes[i].size(); j++) cout << extremes[i][j] << "\t";
+            cout << endl;
+        }
         AddNewSimplices(simplexStack, currentSimplex, extremes[i], NormalizeObjectiveMultipliers(), false, epsilon);
         CheckForSimplicesThatNeedReplaced(simplexStack, simplexIndex, newPointIndex, numObjectives, extremes[i], NormalizeObjectiveMultipliers(), epsilon);
         if(DEBUG)
@@ -475,7 +481,7 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
         }
     }
     
-    k = simplexStack.size()-1;
+    k = max(1, int(simplexStack.size())-1);
     while(k > 0 && iterator < maxIter)
     {
         iterator++;
@@ -491,77 +497,80 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
         }
         
         k = simplexStack.size()-1;
-        while(simplexStack[k].GetSaveForSolution() && k > 0) k--;
-        currentSimplex = simplexStack[k];
-        simplexStack.erase(simplexStack.begin() + k);
-/*        simplexStack.pop_back();*/
-        
-/*        currentSimplex.PrintData();*/
-        
-/*        status = CPXwriteprob (env, tempProb, "prob_before.lp", "LP");*/
-/*        exit(0);*/
-        
-        ChangeTempObjCoefs(currentSimplex.GetNormal());
-        
-/*        status = CPXwriteprob (env, tempProb, "prob.lp", "LP");*/
-/*        exit(0);*/
-        
-        status = CPXlpopt (env, tempProb);
-     	if ( status ) {
-        		printf ("%s(%d): CPXlpopt, Failed to solve tempProb,  error code %d\n", __FILE__, __LINE__, status);
-        		exit(0);
-      	}
-      	
-      	if(DEBUG)
-      	{
-          	point = currentSimplex.GetNormal();
-          	cout << "new current normal is: <";
-          	for(int i = 0; i < numObjectives; i++) cout << point[i] << "\t";
-          	cout << ">" << endl;
-      	}
-      	
-      	point = GetObjectiveValues(tempProb);
-      	if(SAVE_POINTS) 
+        while(simplexStack[k].GetSaveForSolution()) k--;
+        if(k > 0)
         {
-            x = new double[numCols];
-            status = CPXgetx (env, tempProb, x, 0, numCols-1);
-            if ( status ) {
-        		printf ("%s(%d): CPXgetx, Failed to get x values,  error code %d\n", __FILE__, __LINE__, status);
-        		exit(0);
-      	    }
-            pointStack.push_back(Point(point, x, numCols));
-            delete[] x;
-        }
-      	
-      	if(DEBUG)
-      	{
-          	cout << "new point is: (";
-          	for(int i = 0; i < numObjectives; i++) cout << point[i] << "\t";
-          	cout << ")" << endl;
-          	cout << currentSimplex.MultiplyPointsByNormal(point) << "\t" << currentSimplex.PlaneVal() << endl;
-          	currentSimplex.WriteOctaveCodeToPlotSimplex();
-          	cout << "Distance to simplex: " << currentSimplex.MultiplyPointsByNormal(point) - (currentSimplex.PlaneVal() - epsilon) << "\nIn Front of An Adjacent: " << PointIsInFrontOfAnAdjacent(simplexStack, currentSimplex, point, epsilon) << endl;
-      	}
-      	
-      	if(currentSimplex.MultiplyPointsByNormal(point) < currentSimplex.PlaneVal() - epsilon)// || PointIsInFrontOfAnAdjacent(simplexStack, currentSimplex, point, epsilon))
-      	{
-      	    if(DEBUG)
-      	    {
-/*      	        cout << "Distance to simplex: " << currentSimplex.MultiplyPointsByNormal(point) - (currentSimplex.PlaneVal() - epsilon) << "\nIn Front of An Adjacent: " << PointIsInFrontOfAnAdjacent(simplexStack, currentSimplex, point, epsilon) << endl;*/
-      	        cout << "Adding three new simplices to stack" << endl;
-      	    }
-      	    
-      	    AddNewSimplices(simplexStack, currentSimplex, point, NormalizeObjectiveMultipliers(), false, epsilon);
+            currentSimplex = simplexStack[k];
+            simplexStack.erase(simplexStack.begin() + k);
+    /*        simplexStack.pop_back();*/
+            
+    /*        currentSimplex.PrintData();*/
+            
+    /*        status = CPXwriteprob (env, tempProb, "prob_before.lp", "LP");*/
+    /*        exit(0);*/
+            
+            ChangeTempObjCoefs(currentSimplex.GetNormal());
+            
+    /*        status = CPXwriteprob (env, tempProb, "prob.lp", "LP");*/
+    /*        exit(0);*/
+            
+            status = CPXlpopt (env, tempProb);
+         	if ( status ) {
+            		printf ("%s(%d): CPXlpopt, Failed to solve tempProb,  error code %d\n", __FILE__, __LINE__, status);
+            		exit(0);
+          	}
+          	
+          	if(DEBUG)
+          	{
+              	point = currentSimplex.GetNormal();
+              	cout << "new current normal is: <";
+              	for(int i = 0; i < numObjectives; i++) cout << point[i] << "\t";
+              	cout << ">" << endl;
+          	}
+          	
+          	point = GetObjectiveValues(tempProb);
+          	if(SAVE_POINTS) 
+            {
+                x = new double[numCols];
+                status = CPXgetx (env, tempProb, x, 0, numCols-1);
+                if ( status ) {
+            		printf ("%s(%d): CPXgetx, Failed to get x values,  error code %d\n", __FILE__, __LINE__, status);
+            		exit(0);
+          	    }
+                pointStack.push_back(Point(point, x, numCols));
+                delete[] x;
+            }
+          	
+          	if(DEBUG)
+          	{
+              	cout << "new point is: (";
+              	for(int i = 0; i < numObjectives; i++) cout << point[i] << "\t";
+              	cout << ")" << endl;
+              	cout << currentSimplex.MultiplyPointsByNormal(point) << "\t" << currentSimplex.PlaneVal() << endl;
+              	currentSimplex.WriteOctaveCodeToPlotSimplex();
+              	cout << "Distance to simplex: " << currentSimplex.MultiplyPointsByNormal(point) - (currentSimplex.PlaneVal() - epsilon) << "\nIn Front of An Adjacent: " << PointIsInFrontOfAnAdjacent(simplexStack, currentSimplex, point, epsilon) << endl;
+          	}
+          	
+          	if(currentSimplex.MultiplyPointsByNormal(point) < currentSimplex.PlaneVal() - epsilon)// || PointIsInFrontOfAnAdjacent(simplexStack, currentSimplex, point, epsilon))
+          	{
+          	    if(DEBUG)
+          	    {
+    /*      	        cout << "Distance to simplex: " << currentSimplex.MultiplyPointsByNormal(point) - (currentSimplex.PlaneVal() - epsilon) << "\nIn Front of An Adjacent: " << PointIsInFrontOfAnAdjacent(simplexStack, currentSimplex, point, epsilon) << endl;*/
+          	        cout << "Adding three new simplices to stack" << endl;
+          	    }
+          	    
+          	    AddNewSimplices(simplexStack, currentSimplex, point, NormalizeObjectiveMultipliers(), false, epsilon);
 
-            CheckForSimplicesThatNeedReplaced(simplexStack, simplexIndex, newPointIndex, numObjectives, point, NormalizeObjectiveMultipliers(), epsilon);
-      	}
-      	else
-      	{
-/*      	    retVec.push_back(currentSimplex);*/
-            currentSimplex.SaveForSolution();
-            simplexStack.push_back(currentSimplex);
-      	    
-      	    if(DEBUG) cout << "No new point found" << endl;
+                CheckForSimplicesThatNeedReplaced(simplexStack, simplexIndex, newPointIndex, numObjectives, point, NormalizeObjectiveMultipliers(), epsilon);
+          	}
+          	else
+          	{
+    /*      	    retVec.push_back(currentSimplex);*/
+                currentSimplex.SaveForSolution();
+                simplexStack.push_back(currentSimplex);
+          	    
+          	    if(DEBUG) cout << "No new point found" << endl;
+          	}
       	}
     }
     if(iterator == maxIter)
@@ -937,18 +946,20 @@ double GetVectorMagnitude(const vector<double> & v)
     return sqrt(retVal);
 }
 
-void SplitSimplexInTwoUsingPoint(const Simplex & s, const vector<double> & point, vector<Simplex> & simplexStack, int newPointIndex, bool normalize)
+bool SplitSimplexInTwoUsingPoint(const Simplex & s, const vector<double> & point, vector<Simplex> & simplexStack, int newPointIndex, bool normalize, int startingScanIndex)
 {
     int dim = s.GetDimension();
     bool save = s.GetSaveForSolution();
     Simplex temp(dim);
+    bool retBool = true;
     
-/*    bool DEBUG = true;*/
+/*    bool DEBUG = false;*/
     
     if(DEBUG) 
     {
         cout << "\%There is a 'dominated' simplex which needs replaced. The new point index is: " << newPointIndex << ". The simplex is shown below: " << endl;
-        s.WriteOctaveCodeToPlotSimplex();
+/*        s.WriteOctaveCodeToPlotSimplex();*/
+        cout << "dim: " << dim << endl;
     }
     for(int j = 0; j < dim; j++)
     {
@@ -968,14 +979,19 @@ void SplitSimplexInTwoUsingPoint(const Simplex & s, const vector<double> & point
                 cout << "capacity: " << simplexStack.capacity() << "\n";
                 cout << "max_size: " << simplexStack.max_size() << "\n";
             }
-            simplexStack.push_back(temp);
+            if(!temp.isInSubsetOfStack(simplexStack, startingScanIndex)) simplexStack.push_back(temp);
+            else
+            {
+                retBool = false;
+                break;
+            }
             if(SCAN_FOR_REPEATS)
             {
                 scanForRepeats(simplexStack);
             }
         }
     }
-    return;
+    return retBool;
 }
 
 /*void MultiobjectiveProblem::PostProcessDichotomicSearch(vector<Simplex> & simplices)*/
@@ -1061,6 +1077,7 @@ void CheckForSimplicesThatNeedReplaced( vector<Simplex> & simplexStack, int & si
                                         const vector<double> & newPoint, bool normalize, double epsilon)
 {
     int k = simplexStack.size() - numObjectives;
+    int l = k;
     Simplex temp(numObjectives);
     Simplex temp2(numObjectives);
     
@@ -1085,7 +1102,11 @@ void CheckForSimplicesThatNeedReplaced( vector<Simplex> & simplexStack, int & si
         {
             cout << "$$$$$$$$$$$$$$$$$$$$$$$\n scanning this simplex: "<< endl;
             temp.WriteOctaveCodeToPlotSimplex();
-            cout << "$$$$$$$$$$$$$$$$$$$$$$$"<< endl;
+            cout << "\%its normal is: ";
+            temp.PrintNormal(); 
+            cout << endl;
+            cout << "\%Is it labelled as Positive? "<< temp.IsPositive() << endl;
+            cout << "$$$$$$$$$$$$$$$$$$$$$$$\n" << endl;
         }
         simplexIndex = k;
         newPointIndex = numObjectives - 1;
@@ -1094,27 +1115,29 @@ void CheckForSimplicesThatNeedReplaced( vector<Simplex> & simplexStack, int & si
         {
             if(DEBUG) cout << "normal vector is not oriented correctly" << endl;
            
-            SplitSimplexInTwoUsingPoint(temp2, newPoint, simplexStack, newPointIndex, normalize);
-            if(DEBUG)
+            if( SplitSimplexInTwoUsingPoint(temp2, newPoint, simplexStack, newPointIndex, normalize, 0) )
             {
-                cout << "\%erasing simplex: " << endl;
-                simplexStack[k].WriteOctaveCodeToPlotSimplex();
-                cout << "\%erasing simplex: " << endl;
-                simplexStack[simplexIndex].WriteOctaveCodeToPlotSimplex();
+                if(DEBUG)
+                {
+                    cout << "\%erasing simplex: " << endl;
+                    simplexStack[k].WriteOctaveCodeToPlotSimplex();
+                    cout << "\%erasing simplex: " << endl;
+                    simplexStack[simplexIndex].WriteOctaveCodeToPlotSimplex();
+                }
+                simplexStack.erase(simplexStack.begin() + k);
+                if(simplexIndex >= int(simplexStack.size()))
+                {
+                    cout << "Error, accessing elements past the end of the stack! File: " << __FILE__ << "  Line: " << __LINE__ << "  Exiting!\n";
+                    exit(0);
+                }
+                else if( simplexIndex < 0 )
+                {
+                    cout << "Error, accessing elements before the start of the stack! File: " << __FILE__ << "  Line: " << __LINE__ << "  Exiting!\n";
+                    exit(0);
+                }
+                simplexStack.erase(simplexStack.begin() + simplexIndex);
+                k -= 2;
             }
-            simplexStack.erase(simplexStack.begin() + k);
-            if(simplexIndex >= int(simplexStack.size()))
-            {
-                cout << "Error, accessing elements past the end of the stack! File: " << __FILE__ << "  Line: " << __LINE__ << "  Exiting!\n";
-                exit(0);
-            }
-            else if( simplexIndex < 0 )
-            {
-                cout << "Error, accessing elements before the start of the stack! File: " << __FILE__ << "  Line: " << __LINE__ << "  Exiting!\n";
-                exit(0);
-            }
-            simplexStack.erase(simplexStack.begin() + simplexIndex);
-            k -= 2;
         }
         else
         {
@@ -1136,20 +1159,22 @@ void CheckForSimplicesThatNeedReplaced( vector<Simplex> & simplexStack, int & si
 /*                    temp2.PrintData();*/
                 }
                 
-                SplitSimplexInTwoUsingPoint(temp2, newPoint, simplexStack, newPointIndex, normalize);
-                simplexStack.erase(simplexStack.begin() + k);
-                if(simplexIndex >= int(simplexStack.size()))
+                if( SplitSimplexInTwoUsingPoint(temp2, newPoint, simplexStack, newPointIndex, normalize, 0) )
                 {
-                    cout << "Error, accessing elements past the end of the stack! File: " << __FILE__ << "  Line: " << __LINE__ << "  Exiting!\n";
-                    exit(0);
+                    simplexStack.erase(simplexStack.begin() + k);
+                    if(simplexIndex >= int(simplexStack.size()))
+                    {
+                        cout << "Error, accessing elements past the end of the stack! File: " << __FILE__ << "  Line: " << __LINE__ << "  Exiting!\n";
+                        exit(0);
+                    }
+                    else if( simplexIndex < 0 )
+                    {
+                        cout << "Error, accessing elements before the start of the stack! File: " << __FILE__ << "  Line: " << __LINE__ << "  Exiting!\n";
+                        exit(0);
+                    }
+                    simplexStack.erase(simplexStack.begin() + simplexIndex);
+                    k -= 2;
                 }
-                else if( simplexIndex < 0 )
-                {
-                    cout << "Error, accessing elements before the start of the stack! File: " << __FILE__ << "  Line: " << __LINE__ << "  Exiting!\n";
-                    exit(0);
-                }
-                simplexStack.erase(simplexStack.begin() + simplexIndex);
-                k -= 2;
             }
         }
         k++;

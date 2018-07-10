@@ -273,6 +273,16 @@ void Simplex::WriteOctaveCodeToPlotSimplex() const
         cout << ")" << endl;
     }
     
+    if(DEBUG)
+    {
+        cout << "\%";
+        for(int i = 0; i < dimension; i++) 
+        {
+            cout << norm[i] << "\t";
+        }
+        cout << endl;
+    }
+    
     return;
 }
 
@@ -449,3 +459,40 @@ double Simplex::Epsilon(void) const{
     return epsilon;
 }
 
+void Simplex::PrintNormal()
+{
+    for(unsigned int i = 0; i < normal.size(); i++) cout << normal[i] << "\t";
+/*    cout << endl;*/
+    return;
+}
+
+bool Simplex::isInSubsetOfStack(const vector<Simplex> & simplexStack, int startingScanIndex)
+{
+    vector< vector<double> > v;
+    int count = 0;
+    bool retBool = false;
+    
+    for(unsigned int i = startingScanIndex; i < simplexStack.size(); i++)
+    {
+        v.resize(0);
+        for(int k = 0; k < simplexStack[0].GetDimension(); k++)
+        {
+            v.push_back(extremePoints[k]);
+        }
+    
+        for(int j = 0; j < simplexStack[0].GetDimension(); j++)
+        {
+            v.push_back(simplexStack[i].GetExtremePoint(j));
+        }
+        sort(v.begin(), v.end());
+        count = unique(v.begin(), v.end()) - v.begin();
+        if(count <= simplexStack[0].GetDimension())
+        {
+            cout << "The new simplex is already here! Don't add it!\n";
+            retBool = true;
+            break;
+        }
+    }
+    
+    return retBool;
+}

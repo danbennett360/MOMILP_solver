@@ -79,6 +79,8 @@ class Simplex
     	int GetPointIndex(const vector<double> & point);
     	void SaveForSolution();
     	bool GetSaveForSolution() const;
+    	void PrintNormal();
+    	bool isInSubsetOfStack(const vector<Simplex> & simplexStack, int startingScanIndex);
 };
 
 double Determinant(const vector< vector<double> > & matrix);

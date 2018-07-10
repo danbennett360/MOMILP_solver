@@ -87,7 +87,7 @@ double GetAngleBetween(const Simplex & s1, const Simplex & s2, bool normalize);
 
 double GetVectorMagnitude(const vector<double> & v);
 
-void SplitSimplexInTwoUsingPoint(const Simplex & s, const vector<double> & point, vector<Simplex> & simplexStack, int newPointIndex, bool normalize);
+bool SplitSimplexInTwoUsingPoint(const Simplex & s, const vector<double> & point, vector<Simplex> & simplexStack, int newPointIndex, bool normalize, int startingScanIndex);
 
 void CheckForSimplicesThatNeedReplaced( vector<Simplex> & simplexStack, int & simplexIndex, int & newPointIndex, const int & numObjectives, 
                                         const vector<double> & newPoint, bool normalize, double epsilon);
