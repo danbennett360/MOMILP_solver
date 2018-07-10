@@ -496,3 +496,36 @@ bool Simplex::isInSubsetOfStack(const vector<Simplex> & simplexStack, int starti
     
     return retBool;
 }
+
+bool Simplex::deleteRepeats(vector<Simplex> & simplexStack, int startingScanIndex)
+{
+    vector< vector<double> > v;
+    int count = 0;
+    bool retBool = false;
+    unsigned int i = startingScanIndex;
+    
+    while(i < simplexStack.size())
+    {
+        v.resize(0);
+        for(int k = 0; k < simplexStack[0].GetDimension(); k++)
+        {
+            v.push_back(extremePoints[k]);
+        }
+    
+        for(int j = 0; j < simplexStack[0].GetDimension(); j++)
+        {
+            v.push_back(simplexStack[i].GetExtremePoint(j));
+        }
+        sort(v.begin(), v.end());
+        count = unique(v.begin(), v.end()) - v.begin();
+        if(count <= simplexStack[0].GetDimension())
+        {
+            if(DEBUG) cout << "Deleting a repeated simplex.\n";
+            simplexStack.erase(simplexStack.begin() + i);
+            retBool = true;
+        }
+        else i++;
+    }
+    
+    return retBool;
+}

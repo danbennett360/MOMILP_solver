@@ -81,6 +81,7 @@ class Simplex
     	bool GetSaveForSolution() const;
     	void PrintNormal();
     	bool isInSubsetOfStack(const vector<Simplex> & simplexStack, int startingScanIndex);
+    	bool deleteRepeats(vector<Simplex> & simplexStack, int startingScanIndex);
 };
 
 double Determinant(const vector< vector<double> > & matrix);

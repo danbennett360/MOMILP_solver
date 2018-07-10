@@ -92,6 +92,8 @@ bool SplitSimplexInTwoUsingPoint(const Simplex & s, const vector<double> & point
 void CheckForSimplicesThatNeedReplaced( vector<Simplex> & simplexStack, int & simplexIndex, int & newPointIndex, const int & numObjectives, 
                                         const vector<double> & newPoint, bool normalize, double epsilon);
                                         
+void CheckIfAdjacentsAreShadowed( vector<Simplex> & simplexStack, vector<Simplex> & simplicesToSplit, const Simplex & currentSimplex, const vector<double> & newPoint, const int & numObjectives, double epsilon);
+                                        
 void scanForRepeats(const vector<Simplex> & simplexStack);
 
 bool PointIsInFrontOfAnAdjacent(const vector<Simplex> & simplexStack, const Simplex & simp, const vector<double> & point, const double & epsilon);
@@ -99,5 +101,7 @@ bool PointIsInFrontOfAnAdjacent(const vector<Simplex> & simplexStack, const Simp
 void WritePoints(const vector<Simplex> & simplexStack); 
 
 vector<string> GetVarNames(const CPXENVptr & env, const CPXLPptr & lp, int numCols);
+
+void deleteRepeats(vector<Simplex> & simplexStack, int startingScanIndex);
 
 #endif

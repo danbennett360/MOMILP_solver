@@ -365,6 +365,7 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
     int status = 0;
     vector<Simplex> retVec;
     vector<Simplex> simplexStack;
+    vector<Simplex> simplicesToSplit;
     vector<Point> pointStack;
     Simplex temp(numObjectives);
     Simplex temp2(numObjectives);
@@ -376,9 +377,9 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
     vector< vector<double> > extremes;
     vector<string> varNames;
     int iterator = 0;
-    int simplexIndex = 0, newPointIndex = numObjectives-1;
+/*    int simplexIndex = 0, newPointIndex = numObjectives-1;*/
     vector<int> removeTheseIndicesFromSimplexStack;
-    unsigned int k = 0;
+    unsigned int k = 0, l = 0;
     int numSaved = 0;
     long maxIter = 100000;
     double *x;
@@ -397,7 +398,8 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
         		printf ("%s(%d): CPXgetx, Failed to get x values,  error code %d\n", __FILE__, __LINE__, status);
         		exit(0);
       	    }
-            pointStack.push_back(Point(extremes[i], x, numCols));
+            if(storeObjectivesInMainProb) pointStack.push_back(Point(extremes[i], x, numCols-numObjectives));
+            else pointStack.push_back(Point(extremes[i], x, numCols));
             delete[] x;
         }
     }
@@ -471,8 +473,20 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
             for(unsigned int j = 0; j < extremes[i].size(); j++) cout << extremes[i][j] << "\t";
             cout << endl;
         }
-        AddNewSimplices(simplexStack, currentSimplex, extremes[i], NormalizeObjectiveMultipliers(), false, epsilon);
-        CheckForSimplicesThatNeedReplaced(simplexStack, simplexIndex, newPointIndex, numObjectives, extremes[i], NormalizeObjectiveMultipliers(), epsilon);
+        simplicesToSplit.push_back(currentSimplex);
+        CheckIfAdjacentsAreShadowed(simplexStack, simplicesToSplit, currentSimplex, extremes[i], numObjectives, epsilon);
+        
+        if(DEBUG) cout << "Size of simplicesToSplit: " << simplicesToSplit.size() << endl;
+        
+        l = simplexStack.size();
+        for(unsigned int j = 0; j < simplicesToSplit.size(); j++) AddNewSimplices(simplexStack, simplicesToSplit[j], extremes[i], NormalizeObjectiveMultipliers(), false, epsilon);
+        
+        if(simplicesToSplit.size() > 1) deleteRepeats(simplexStack, l);
+        
+        simplicesToSplit.resize(0);
+        
+/*        AddNewSimplices(simplexStack, currentSimplex, extremes[i], NormalizeObjectiveMultipliers(), false, epsilon);*/
+/*        CheckForSimplicesThatNeedReplaced(simplexStack, simplexIndex, newPointIndex, numObjectives, extremes[i], NormalizeObjectiveMultipliers(), epsilon);*/
         if(DEBUG)
         {
             cout << "**************************\nStored simplices after adding " << i+1 << "th initial extreme point: " << endl;
@@ -537,7 +551,9 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
             		printf ("%s(%d): CPXgetx, Failed to get x values,  error code %d\n", __FILE__, __LINE__, status);
             		exit(0);
           	    }
-                pointStack.push_back(Point(point, x, numCols));
+/*                pointStack.push_back(Point(point, x, numCols));*/
+                if(storeObjectivesInMainProb) pointStack.push_back(Point(point, x, numCols-numObjectives));
+                else pointStack.push_back(Point(point, x, numCols));
                 delete[] x;
             }
           	
@@ -559,9 +575,21 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
           	        cout << "Adding three new simplices to stack" << endl;
           	    }
           	    
-          	    AddNewSimplices(simplexStack, currentSimplex, point, NormalizeObjectiveMultipliers(), false, epsilon);
+          	    simplicesToSplit.push_back(currentSimplex);
+                CheckIfAdjacentsAreShadowed(simplexStack, simplicesToSplit, currentSimplex, point, numObjectives, epsilon);
+                
+                if(DEBUG) cout << "Size of simplicesToSplit: " << simplicesToSplit.size() << endl;
+                
+                l = simplexStack.size();
+                for(unsigned int j = 0; j < simplicesToSplit.size(); j++) AddNewSimplices(simplexStack, simplicesToSplit[j], point, NormalizeObjectiveMultipliers(), false, epsilon);
+                
+                if(simplicesToSplit.size() > 1) deleteRepeats(simplexStack, l);
+                
+                simplicesToSplit.resize(0);
+          	    
+/*          	    AddNewSimplices(simplexStack, currentSimplex, point, NormalizeObjectiveMultipliers(), false, epsilon);*/
 
-                CheckForSimplicesThatNeedReplaced(simplexStack, simplexIndex, newPointIndex, numObjectives, point, NormalizeObjectiveMultipliers(), epsilon);
+/*                CheckForSimplicesThatNeedReplaced(simplexStack, simplexIndex, newPointIndex, numObjectives, point, NormalizeObjectiveMultipliers(), epsilon);*/
           	}
           	else
           	{
@@ -905,10 +933,10 @@ void AddNewSimplices(   vector<Simplex> & simplexStack, const Simplex & currentS
             temp.AddExtreme(point, normalize);
             if(DEBUG) temp.WriteOctaveCodeToPlotSimplex();
             simplexStack.push_back(temp);
-            if(SCAN_FOR_REPEATS)
-            {
-                scanForRepeats(simplexStack);
-            }
+/*            if(SCAN_FOR_REPEATS)*/
+/*            {*/
+/*                scanForRepeats(simplexStack);*/
+/*            }*/
         }
     }    
     
@@ -1077,7 +1105,7 @@ void CheckForSimplicesThatNeedReplaced( vector<Simplex> & simplexStack, int & si
                                         const vector<double> & newPoint, bool normalize, double epsilon)
 {
     int k = simplexStack.size() - numObjectives;
-    int l = k;
+/*    int l = k;*/
     Simplex temp(numObjectives);
     Simplex temp2(numObjectives);
     
@@ -1178,6 +1206,49 @@ void CheckForSimplicesThatNeedReplaced( vector<Simplex> & simplexStack, int & si
             }
         }
         k++;
+    }
+            
+    return;
+}
+
+void CheckIfAdjacentsAreShadowed( vector<Simplex> & simplexStack, vector<Simplex> & simplicesToSplit, const Simplex & currentSimplex, const vector<double> & newPoint, const int & numObjectives, double epsilon)
+{
+    Simplex temp(numObjectives);
+    Simplex temp2(numObjectives);
+    int a = 0, b = 0;
+    
+/*    epsilon *= epsilon;*/
+    
+/*    bool DEBUG = true;*/
+
+    if(DEBUG)
+    {
+         cout << "Checking the following simplex for shadowed adjacents: " << endl;
+         currentSimplex.WriteOctaveCodeToPlotSimplex();
+    }
+    
+    for(int i = 0; i < numObjectives; i++)
+    {
+        temp2 = currentSimplex.FindAdjacentContainingOriginalPoints(simplexStack, a, b, i, false);
+        if(temp2.GetDimension() > 0 && temp2.MultiplyPointsByNormal(newPoint) < temp2.PlaneVal() - epsilon)
+        {
+            if(DEBUG)
+            {
+                cout << "The following simplex needs split" << endl;
+                simplexStack[a].WriteOctaveCodeToPlotSimplex();
+            }
+            
+            simplicesToSplit.push_back(simplexStack[a]);
+            simplexStack.erase(simplexStack.begin() + a);
+            
+            temp = simplicesToSplit[simplicesToSplit.size()-1];
+            CheckIfAdjacentsAreShadowed( simplexStack, simplicesToSplit, temp, newPoint, numObjectives, epsilon);
+            if(DEBUG)
+            {
+                 cout << "After returning from a recursion, the current simplex is: " << endl;
+                 currentSimplex.WriteOctaveCodeToPlotSimplex();
+            }
+        }
     }
             
     return;
@@ -1285,7 +1356,7 @@ void WritePoints(const vector<Simplex> & simplexStack)
         for(int j = 0; j < simplexStack[0].GetDimension(); j++) cout << v[i][j] << " ";
         cout << "]" << endl;
     }
-    cout << "***********************************\nTotal number of extereme points: " << v.size() << endl;
+    cout << "***********************************\nTotal number of extreme points: " << v.size() << endl;
 }
 
 vector<string> GetVarNames(const CPXENVptr & env, const CPXLPptr & lp, int numCols)
@@ -1339,4 +1410,17 @@ void MultiobjectiveProblem::Epsilon(double e) {
 
 double MultiobjectiveProblem::Epsilon(void) const{
     return epsilon;
+}
+
+void deleteRepeats(vector<Simplex> & simplexStack, int startingScanIndex)
+{
+    unsigned int i = startingScanIndex;
+    
+    while(i < simplexStack.size())
+    {
+        if(simplexStack[i].deleteRepeats(simplexStack, i + 1)) simplexStack.erase(simplexStack.begin() + i);
+        else i++;
+    }
+    
+    return;
 }
