@@ -235,7 +235,7 @@ vector<double> Simplex::GetExtremePoint(int i) const
     return extremePoints[i];
 }
 
-void Simplex::WriteOctaveCodeToPlotSimplex() const
+void Simplex::WriteOctaveCodeToPlotSimplex(bool a) const
 {
     vector<double> midpoint(dimension, 0.);
     vector<double> norm = GetNormal(); 
@@ -248,7 +248,11 @@ void Simplex::WriteOctaveCodeToPlotSimplex() const
         }
         cout << "], [";
     }
-    for(int i = 0; i < 3; i++) cout << ((double) rand() / (RAND_MAX)) << " ";
+    for(int i = 0; i < 3; i++) 
+    {
+        if(a) cout << ((double) rand() / (RAND_MAX)) << " ";
+        else cout << "0 ";
+    }
     
     cout << "]);" <<  endl;
     

@@ -246,7 +246,7 @@ void MultiobjectiveProblem::SetParamVals(int argc, char **argv)
         if(argv[i][0] != '-')
         {
             cout << "Invalid Command Line Argument (missing '-'). Exiting." << endl;
-	    cout << "Got " << argv[i] << endl;
+	        cout << "Got " << argv[i] << endl;
             exit(1);
         }
         else
@@ -340,7 +340,7 @@ vector<Simplex> MultiobjectiveProblem::DichotomicSearch()
     vector<Simplex> retVec;
     
     tempProb = CPXcloneprob (env, mainProb, &status);
-    cout << status << endl;
+/*    cout << status << endl;*/
     if ( status ) 
   	{
     		printf ("Failed to clone main problem.\n");
@@ -381,7 +381,7 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
     vector<int> removeTheseIndicesFromSimplexStack;
     unsigned int k = 0, l = 0;
     int numSaved = 0;
-    long maxIter = 100000;
+    long maxIter = 1000000;
     double *x;
     
 /*    bool DEBUG = true;*/
@@ -412,10 +412,10 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
         {
             mins[i] = min(mins[i], extremes[j][i]);
             maxs[i] = max(maxs[i], extremes[j][i]);
-            cout << extremes[i][j] << "\t";
+/*            cout << extremes[i][j] << "\t";*/
         }
-        cout << endl;
-        cout << mins[i] << "\t" << maxs[i] << endl;
+/*        cout << endl;*/
+/*        cout << mins[i] << "\t" << maxs[i] << endl;*/
     }
     
     for(int i = 0; i < numObjectives; i++)
@@ -424,9 +424,9 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
         {
             if(i == j) point[j] = infinity; 
             else point[j] = mins[j];
-            cout << point[j] << "\t";
+/*            cout << point[j] << "\t";*/
         }
-        cout << endl;
+/*        cout << endl;*/
         temp.AddExtreme(point, NormalizeObjectiveMultipliers());
     }
     
@@ -439,7 +439,7 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
     if(DEBUG)
     {
         cout << "**************************\nInitial Simplex: " << endl;
-        for(unsigned int i = 0; i < simplexStack.size(); i++) simplexStack[i].WriteOctaveCodeToPlotSimplex();
+        for(unsigned int i = 0; i < simplexStack.size(); i++) simplexStack[i].WriteOctaveCodeToPlotSimplex(true);
         cout << "**************************" << endl;
     }
    
@@ -474,12 +474,21 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
             cout << endl;
         }
         simplicesToSplit.push_back(currentSimplex);
-        CheckIfAdjacentsAreShadowed(simplexStack, simplicesToSplit, currentSimplex, extremes[i], numObjectives, epsilon);
+        CheckIfAdjacentsAreShadowed(simplexStack, simplicesToSplit, currentSimplex, extremes[i], numObjectives, epsilon*epsilon);
         
-        if(DEBUG) cout << "Size of simplicesToSplit: " << simplicesToSplit.size() << endl;
+        if(DEBUG) 
+        {
+            cout << "Size of simplicesToSplit: " << simplicesToSplit.size() << endl;
+            cout << "The simplices that will be split are: " << endl;
+        }
         
         l = simplexStack.size();
-        for(unsigned int j = 0; j < simplicesToSplit.size(); j++) AddNewSimplices(simplexStack, simplicesToSplit[j], extremes[i], NormalizeObjectiveMultipliers(), false, epsilon);
+        
+        for(unsigned int j = 0; j < simplicesToSplit.size(); j++) 
+        {
+            if(DEBUG) simplicesToSplit[j].WriteOctaveCodeToPlotSimplex(false);
+            AddNewSimplices(simplexStack, simplicesToSplit[j], extremes[i], NormalizeObjectiveMultipliers(), false, epsilon);
+        }
         
         if(simplicesToSplit.size() > 1) deleteRepeats(simplexStack, l);
         
@@ -490,7 +499,7 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
         if(DEBUG)
         {
             cout << "**************************\nStored simplices after adding " << i+1 << "th initial extreme point: " << endl;
-            for(unsigned int j = 0; j < simplexStack.size(); j++) simplexStack[j].WriteOctaveCodeToPlotSimplex();
+            for(unsigned int j = 0; j < simplexStack.size(); j++) simplexStack[j].WriteOctaveCodeToPlotSimplex(true);
             cout << "**************************" << endl;
         }
     }
@@ -504,9 +513,9 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
             cout << "-----------------------------------------------------------------------------------" << endl;
             cout << "Iteration: " << iterator << "\tSize of stack: " << simplexStack.size() <<endl;
             cout << "**************************\nSimplices in stack: " << endl;
-            for(unsigned int i = 0; i < simplexStack.size(); i++) simplexStack[i].WriteOctaveCodeToPlotSimplex();
+            for(unsigned int i = 0; i < simplexStack.size(); i++) simplexStack[i].WriteOctaveCodeToPlotSimplex(true);
             cout << "\%**************************\n\%Simplices stored in return vector:" << endl;
-            for(unsigned int i = 0; i < retVec.size(); i++) retVec[i].WriteOctaveCodeToPlotSimplex();
+            for(unsigned int i = 0; i < retVec.size(); i++) retVec[i].WriteOctaveCodeToPlotSimplex(true);
             cout << "^^^^^^^^^^^^^^^^^^^^^^^^^^^^" << endl;
         }
         
@@ -563,7 +572,7 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
               	for(int i = 0; i < numObjectives; i++) cout << point[i] << "\t";
               	cout << ")" << endl;
               	cout << currentSimplex.MultiplyPointsByNormal(point) << "\t" << currentSimplex.PlaneVal() << endl;
-              	currentSimplex.WriteOctaveCodeToPlotSimplex();
+              	currentSimplex.WriteOctaveCodeToPlotSimplex(true);
               	cout << "Distance to simplex: " << currentSimplex.MultiplyPointsByNormal(point) - (currentSimplex.PlaneVal() - epsilon) << "\nIn Front of An Adjacent: " << PointIsInFrontOfAnAdjacent(simplexStack, currentSimplex, point, epsilon) << endl;
           	}
           	
@@ -576,14 +585,31 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
           	    }
           	    
           	    simplicesToSplit.push_back(currentSimplex);
-                CheckIfAdjacentsAreShadowed(simplexStack, simplicesToSplit, currentSimplex, point, numObjectives, epsilon);
+                CheckIfAdjacentsAreShadowed(simplexStack, simplicesToSplit, currentSimplex, point, numObjectives, epsilon*epsilon);
                 
                 if(DEBUG) cout << "Size of simplicesToSplit: " << simplicesToSplit.size() << endl;
+                if(DEBUG) cout << "Size of simplexStack: " << simplexStack.size() << endl;
+                if(DEBUG) 
+                {
+                    cout << "-----------------------\nThe simplices to be split are: " << endl;
+                    for(unsigned int j = 0; j < simplicesToSplit.size(); j++) 
+                    {
+                        simplicesToSplit[j].WriteOctaveCodeToPlotSimplex(false);
+                    }
+                    cout << "-----------------------\n";
+                }
                 
                 l = simplexStack.size();
-                for(unsigned int j = 0; j < simplicesToSplit.size(); j++) AddNewSimplices(simplexStack, simplicesToSplit[j], point, NormalizeObjectiveMultipliers(), false, epsilon);
+                for(unsigned int j = 0; j < simplicesToSplit.size(); j++) 
+                {
+                    AddNewSimplices(simplexStack, simplicesToSplit[j], point, NormalizeObjectiveMultipliers(), false, epsilon);
+                }
+                
+                if(DEBUG) cout << "Size of simplexStack after adding: " << simplexStack.size() << endl;
                 
                 if(simplicesToSplit.size() > 1) deleteRepeats(simplexStack, l);
+                
+                if(DEBUG) cout << "Size of simplexStack after deleting: " << simplexStack.size() << endl;
                 
                 simplicesToSplit.resize(0);
           	    
@@ -609,14 +635,14 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
         for(unsigned int j = 0; j < simplexStack.size(); j++) 
         {
             if(simplexStack[j].GetSaveForSolution()) numSaved++;
-            simplexStack[j].WriteOctaveCodeToPlotSimplex();
+            simplexStack[j].WriteOctaveCodeToPlotSimplex(true);
         }
         cout << "\%**************************" << endl;
         
         cout << "Number of Simplices in List: " << simplexStack.size() << "\tNumber Saved: " << numSaved << "\tNumber left to search: " << simplexStack.size() - numSaved << endl;
         
 /*        cout << "\%**************************\n\%Simplices discovered so far: " << endl;*/
-/*        for(unsigned int i = 0; i < retVec.size(); i++) retVec[i].WriteOctaveCodeToPlotSimplex();*/
+/*        for(unsigned int i = 0; i < retVec.size(); i++) retVec[i].WriteOctaveCodeToPlotSimplex(true);*/
 /*        cout << "**************************" << endl;*/
         
         exit(0);
@@ -625,7 +651,7 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
 /*    if(DEBUG) */
 /*    {*/
   	    cout << "**************************\nSimplices after dichotomic search (which took " << iterator << " iterations): " << endl;
-        for(unsigned int i = 0; i < simplexStack.size(); i++) simplexStack[i].WriteOctaveCodeToPlotSimplex();
+        for(unsigned int i = 0; i < simplexStack.size(); i++) simplexStack[i].WriteOctaveCodeToPlotSimplex(true);
         cout << "**************************\nTotal number in list is: " << simplexStack.size() << endl;
         
         cout << "*************************************\nThe individual extreme points discovered are:\n";
@@ -637,7 +663,7 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
 /*    if(DEBUG) */
 /*    {*/
 /*  	    cout << "**************************\nSimplices after post processing: " << endl;*/
-/*        for(unsigned int i = 0; i < retVec.size(); i++) retVec[i].WriteOctaveCodeToPlotSimplex();*/
+/*        for(unsigned int i = 0; i < retVec.size(); i++) retVec[i].WriteOctaveCodeToPlotSimplex(true);*/
 /*        cout << "**************************" << endl;*/
 /*    }*/
 
@@ -877,7 +903,7 @@ void AddNewSimplices(   vector<Simplex> & simplexStack, const Simplex & currentS
           	    if(DEBUG) 
           	    {
               	    cout << "\%There is a 'dominated' simplex which needs replaced. Its index is " << simplexIndex << ". The new point index is: " << newPointIndex << ". The simplex is shown below: " << endl;
-              	    temp2.WriteOctaveCodeToPlotSimplex();
+              	    temp2.WriteOctaveCodeToPlotSimplex(true);
           	    }
                 for(int j = 0; j < dim; j++)
                 {
@@ -889,7 +915,7 @@ void AddNewSimplices(   vector<Simplex> & simplexStack, const Simplex & currentS
       	                    if(k != j) temp.AddExtreme(temp2.GetExtremePoint(k), normalize);
       	                }
       	                temp.AddExtreme(point, normalize);
-      	                if(DEBUG) temp.WriteOctaveCodeToPlotSimplex();
+      	                if(DEBUG) temp.WriteOctaveCodeToPlotSimplex(true);
                         simplexStack.push_back(temp);
                         if(SCAN_FOR_REPEATS)
                         {
@@ -916,7 +942,7 @@ void AddNewSimplices(   vector<Simplex> & simplexStack, const Simplex & currentS
                     if(j != i) temp.AddExtreme(extremePoints[j], normalize);
                 }
                 temp.AddExtreme(point, normalize);
-                if(DEBUG) temp.WriteOctaveCodeToPlotSimplex();
+                if(DEBUG) temp.WriteOctaveCodeToPlotSimplex(true);
                 simplexStack.push_back(temp);
                 if(SCAN_FOR_REPEATS)
                 {
@@ -931,7 +957,7 @@ void AddNewSimplices(   vector<Simplex> & simplexStack, const Simplex & currentS
                 if(j != i) temp.AddExtreme(extremePoints[j], normalize);
             }
             temp.AddExtreme(point, normalize);
-            if(DEBUG) temp.WriteOctaveCodeToPlotSimplex();
+            if(DEBUG) temp.WriteOctaveCodeToPlotSimplex(true);
             simplexStack.push_back(temp);
 /*            if(SCAN_FOR_REPEATS)*/
 /*            {*/
@@ -986,7 +1012,7 @@ bool SplitSimplexInTwoUsingPoint(const Simplex & s, const vector<double> & point
     if(DEBUG) 
     {
         cout << "\%There is a 'dominated' simplex which needs replaced. The new point index is: " << newPointIndex << ". The simplex is shown below: " << endl;
-/*        s.WriteOctaveCodeToPlotSimplex();*/
+/*        s.WriteOctaveCodeToPlotSimplex(true);*/
         cout << "dim: " << dim << endl;
     }
     for(int j = 0; j < dim; j++)
@@ -1002,7 +1028,7 @@ bool SplitSimplexInTwoUsingPoint(const Simplex & s, const vector<double> & point
             temp.AddExtreme(point, normalize);
             if(DEBUG) 
             {
-                temp.WriteOctaveCodeToPlotSimplex();
+                temp.WriteOctaveCodeToPlotSimplex(true);
                 cout << "size: " << simplexStack.size() << "\n";
                 cout << "capacity: " << simplexStack.capacity() << "\n";
                 cout << "max_size: " << simplexStack.max_size() << "\n";
@@ -1046,7 +1072,7 @@ bool SplitSimplexInTwoUsingPoint(const Simplex & s, const vector<double> & point
 /*    }*/
 /*    */
 /*    cout << "**************************\npotentials: " << endl;*/
-/*    for(unsigned int k = 0; k < potentials.size(); k++) potentials[k].WriteOctaveCodeToPlotSimplex();*/
+/*    for(unsigned int k = 0; k < potentials.size(); k++) potentials[k].WriteOctaveCodeToPlotSimplex(true);*/
 /*    cout << "**************************" << endl;*/
 /*    */
 /*    i = 0;*/
@@ -1087,7 +1113,7 @@ bool SplitSimplexInTwoUsingPoint(const Simplex & s, const vector<double> & point
 /*                            if(k != index) temp2.AddExtreme(potentials[i].GetExtremePoint(k), NormalizeObjectiveMultipliers());*/
 /*                        }*/
 /*                        temp2.AddExtreme(temp.GetExtremePoint(newPointIndex), NormalizeObjectiveMultipliers());*/
-/*                        temp2.WriteOctaveCodeToPlotSimplex();*/
+/*                        temp2.WriteOctaveCodeToPlotSimplex(true);*/
 /*                        temp2.PrintData();*/
 /*                        exit(0);*/
 /*                    }*/
@@ -1129,7 +1155,7 @@ void CheckForSimplicesThatNeedReplaced( vector<Simplex> & simplexStack, int & si
         if(DEBUG)
         {
             cout << "$$$$$$$$$$$$$$$$$$$$$$$\n scanning this simplex: "<< endl;
-            temp.WriteOctaveCodeToPlotSimplex();
+            temp.WriteOctaveCodeToPlotSimplex(true);
             cout << "\%its normal is: ";
             temp.PrintNormal(); 
             cout << endl;
@@ -1148,9 +1174,9 @@ void CheckForSimplicesThatNeedReplaced( vector<Simplex> & simplexStack, int & si
                 if(DEBUG)
                 {
                     cout << "\%erasing simplex: " << endl;
-                    simplexStack[k].WriteOctaveCodeToPlotSimplex();
+                    simplexStack[k].WriteOctaveCodeToPlotSimplex(true);
                     cout << "\%erasing simplex: " << endl;
-                    simplexStack[simplexIndex].WriteOctaveCodeToPlotSimplex();
+                    simplexStack[simplexIndex].WriteOctaveCodeToPlotSimplex(true);
                 }
                 simplexStack.erase(simplexStack.begin() + k);
                 if(simplexIndex >= int(simplexStack.size()))
@@ -1176,14 +1202,14 @@ void CheckForSimplicesThatNeedReplaced( vector<Simplex> & simplexStack, int & si
                 {
 /*                            temp.PrintData();*/
 /*                            temp2.PrintData();*/
-/*                            temp.WriteOctaveCodeToPlotSimplex();*/
-/*                            temp2.WriteOctaveCodeToPlotSimplex();*/
+/*                            temp.WriteOctaveCodeToPlotSimplex(true);*/
+/*                            temp2.WriteOctaveCodeToPlotSimplex(true);*/
                     cout << "found two simplices which cause nonconvexity" << endl;
                     cout << "\%erasing simplex: " << endl;
-                    simplexStack[k].WriteOctaveCodeToPlotSimplex();
+                    simplexStack[k].WriteOctaveCodeToPlotSimplex(true);
 /*                    temp.PrintData();*/
                     cout << "\%erasing simplex: " << endl;
-                    simplexStack[simplexIndex].WriteOctaveCodeToPlotSimplex();
+                    simplexStack[simplexIndex].WriteOctaveCodeToPlotSimplex(true);
 /*                    temp2.PrintData();*/
                 }
                 
@@ -1224,7 +1250,7 @@ void CheckIfAdjacentsAreShadowed( vector<Simplex> & simplexStack, vector<Simplex
     if(DEBUG)
     {
          cout << "Checking the following simplex for shadowed adjacents: " << endl;
-         currentSimplex.WriteOctaveCodeToPlotSimplex();
+         currentSimplex.WriteOctaveCodeToPlotSimplex(true);
     }
     
     for(int i = 0; i < numObjectives; i++)
@@ -1235,7 +1261,7 @@ void CheckIfAdjacentsAreShadowed( vector<Simplex> & simplexStack, vector<Simplex
             if(DEBUG)
             {
                 cout << "The following simplex needs split" << endl;
-                simplexStack[a].WriteOctaveCodeToPlotSimplex();
+                simplexStack[a].WriteOctaveCodeToPlotSimplex(true);
             }
             
             simplicesToSplit.push_back(simplexStack[a]);
@@ -1246,7 +1272,7 @@ void CheckIfAdjacentsAreShadowed( vector<Simplex> & simplexStack, vector<Simplex
             if(DEBUG)
             {
                  cout << "After returning from a recursion, the current simplex is: " << endl;
-                 currentSimplex.WriteOctaveCodeToPlotSimplex();
+                 currentSimplex.WriteOctaveCodeToPlotSimplex(true);
             }
         }
     }
@@ -1311,7 +1337,7 @@ void scanForRepeats(const vector<Simplex> & simplexStack)
             if(DEBUG)
             {
                 cout << "**************************\nSimplices: " << endl;
-                for(unsigned int j = 0; j < simplexStack.size(); j++) simplexStack[j].WriteOctaveCodeToPlotSimplex();
+                for(unsigned int j = 0; j < simplexStack.size(); j++) simplexStack[j].WriteOctaveCodeToPlotSimplex(true);
                 cout << "**************************" << endl;
             }
             exit(0);

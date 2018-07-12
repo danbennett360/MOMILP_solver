@@ -13,8 +13,8 @@ of nondominated solutions.*/
 #include "problem_class.h"
 #include "multiobjective_solver.h"
 
-bool DEBUG = true;
-bool SCAN_FOR_REPEATS = true;
+bool DEBUG = false;
+bool SCAN_FOR_REPEATS = false;
 bool SAVE_POINTS = true;
 
 int main(int argc, char **argv)

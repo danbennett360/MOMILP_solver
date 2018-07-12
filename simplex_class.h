@@ -70,7 +70,7 @@ class Simplex
     	double PlaneVal();
     	vector< vector<double> > GetExtremePoints() const;
     	vector<double> GetExtremePoint(int i) const;
-    	void WriteOctaveCodeToPlotSimplex() const;
+    	void WriteOctaveCodeToPlotSimplex(bool a) const;
     	bool IsPositive();
     	Simplex FindAdjacentContainingOriginalPoints(const vector<Simplex> & simplices, int & simplexIndex, int & newPointIndex, int ignoreIndex, bool isIn) const;
     	int GetDimension() const;
