@@ -48,7 +48,7 @@ class Simplex
     	void GenerateNormal();
     	double planeVal;
     	bool isPositive = true;
-        double epsilon = .0000001;
+        double epsilon = .00001;
         double infinity = CPX_INFBOUND;
         int numDummies = 0;
         bool showNormalsInPlots = false;
@@ -57,9 +57,9 @@ class Simplex
     	Simplex(int i);
     	Simplex() : Simplex(2) {};
 
-	// bennett 7/18
-	double Epsilon(void) const;
-	void Epsilon(double e);
+	    // bennett 7/18
+	    double Epsilon(void) const;
+	    void Epsilon(double e);
 
     	void AddExtreme(const vector<double> & v, bool normalize);
     	void PrintData() const;
@@ -71,7 +71,7 @@ class Simplex
     	vector< vector<double> > GetExtremePoints() const;
     	vector<double> GetExtremePoint(int i) const;
     	void WriteOctaveCodeToPlotSimplex(bool a) const;
-    	bool IsPositive();
+    	bool IsPositive() const;
     	Simplex FindAdjacentContainingOriginalPoints(const vector<Simplex> & simplices, int & simplexIndex, int & newPointIndex, int ignoreIndex, bool isIn) const;
     	int GetDimension() const;
     	int GetNumDummyPoints();

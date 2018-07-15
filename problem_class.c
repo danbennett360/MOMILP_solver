@@ -237,12 +237,14 @@ void MultiobjectiveProblem::SetParamVals(int argc, char **argv)
      //int i = numObjectives + 2;
      int i = 2;
      int limit = min (argc, numObjectives+2);
+     int debugLevel = 0;
      while (i < limit and argv[i][0] != '-') {
          i++;
      }
 
      while(i < argc)
      {
+/*        cout << argv[i] << endl;*/
         if(argv[i][0] != '-')
         {
             cout << "Invalid Command Line Argument (missing '-'). Exiting." << endl;
@@ -272,37 +274,38 @@ void MultiobjectiveProblem::SetParamVals(int argc, char **argv)
 	    // bennett 7/18
             else if(!strcmp(argv[i],"-epsilon")) {
                 i++;
-		if (argv[i] != nullptr) {
-		    try {
-		       epsilon = stod(argv[i]);
-		       i++;
-		    } catch(const invalid_argument & ia) {
-		       
+		        if (argv[i] != nullptr) {
+		            try {
+		                epsilon = stod(argv[i]);
+		                EPSILON = epsilon;
+		                i++;
+		            } catch(const invalid_argument & ia) {
+		           
                         cout << "Invalid value for flag '-epsilon'" <<  argv[i] 
-			     << " , ignoring. Valid values are positive dobules." << endl;
-		    }
-		} else {
-                    cout << "Invalid value for flag '-epsilon'" 
-		         << ", ignoring. Valid values are positive dobules." << endl;
-		}
+			            << " , ignoring. Valid values are positive doubles." << endl;
+		            }
+		        } else {
+                            cout << "Invalid value for flag '-epsilon'" 
+		                 << ", ignoring. Valid values are positive doubles." << endl;
+		        }
             }
-            else if(!strcmp(argv[i],"-normalize"))
-            {
-                i++;
-                if(toupper(argv[i][0]) == 'T')
-                {
-                    normalizeObjectiveMultipliers = true;
-                }
-                else if(toupper(argv[i][0]) == 'F')
-                {
-                    normalizeObjectiveMultipliers = false;
-                }
-                else
-                {
-                    cout << "Invalid value for flag '-normalize', ignoring. Valid values are 'T' and 'F'." << endl;
-                }
-                i++;
-            }
+/*            else if(!strcmp(argv[i],"-normalize"))*/
+/*            {*/
+/*                i++;*/
+/*                if(toupper(argv[i][0]) == 'T')*/
+/*                {*/
+/*                    normalizeObjectiveMultipliers = true;*/
+/*                }*/
+/*                else if(toupper(argv[i][0]) == 'F')*/
+/*                {*/
+/*                    normalizeObjectiveMultipliers = false;*/
+/*                }*/
+/*                else*/
+/*                {*/
+/*                    cout << "Invalid value for flag '-normalize', ignoring. Valid values are 'T' and 'F'." << endl;*/
+/*                }*/
+/*                i++;*/
+/*            }*/
             else if(!strcmp(argv[i],"-lexopt"))
             {
                 i++;
@@ -317,6 +320,71 @@ void MultiobjectiveProblem::SetParamVals(int argc, char **argv)
                 else
                 {
                     cout << "Invalid value for flag '-lexopt', ignoring. Valid values are 'T' and 'F'." << endl;
+                }
+                i++;
+            }
+            else if(!strcmp(argv[i],"-showprogress"))
+            {
+                i++;
+                if(toupper(argv[i][0]) == 'T')
+                {
+                    showProgress = true;
+                }
+                else if(toupper(argv[i][0]) == 'F')
+                {
+                    showProgress = false;
+                }
+                else
+                {
+                    cout << "Invalid value for flag '-showprogress', ignoring. Valid values are 'T' and 'F'." << endl;
+                }
+                i++;
+            }
+            else if(!strcmp(argv[i],"-progressvalue"))
+            {
+                i++;
+                showProgressIterations = atoi(argv[i]);
+		        i++;
+            }
+            else if(!strcmp(argv[i],"-maxiter"))
+            {
+                i++;
+                maxIterations = atoi(argv[i]);
+                i++;
+            }
+            else if(!strcmp(argv[i],"-debug"))
+            {
+                i++;
+                debugLevel = atoi(argv[i]);
+                if(debugLevel < 0 || debugLevel > 2)
+                {
+                    cout << "Invalid value for flag '-debug', ignoring. Valid values are '0', '1' and '2'." << endl;
+                }
+                else
+                {
+                    if(debugLevel >= 1) 
+                    {
+                        SCAN_FOR_REPEATS = true;
+                        SCAN_FOR_NEGATIVE_NORMAL = true;
+                    }
+                    if(debugLevel >= 2) DEBUG = true;
+                }
+                i++;
+            }
+            else if(!strcmp(argv[i],"-reldist"))
+            {
+                i++;
+                if(toupper(argv[i][0]) == 'T')
+                {
+                    relativeDistance = true;
+                }
+                else if(toupper(argv[i][0]) == 'F')
+                {
+                    relativeDistance = false;
+                }
+                else
+                {
+                    cout << "Invalid value for flag '-reldist', ignoring. Valid values are 'T' and 'F'." << endl;
                 }
                 i++;
             }
@@ -381,7 +449,7 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
     vector<int> removeTheseIndicesFromSimplexStack;
     unsigned int k = 0, l = 0;
     int numSaved = 0;
-    long maxIter = 1000000;
+    long maxIter = maxIterations;
     double *x;
     
 /*    bool DEBUG = true;*/
@@ -390,6 +458,7 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
     for(int i = 0; i < numObjectives; i++)
     {
         extremes.push_back(LexicographicMinimization(i));
+        if(i != 0) CheckForDomination(extremes, epsilon);
         if(SAVE_POINTS) 
         {
             x = new double[numCols];
@@ -445,6 +514,13 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
    
     for(int i = 0; i < numObjectives; i++)
     {
+        if(DEBUG)
+        {
+            cout << "Adding point: ";
+            for(unsigned int j = 0; j < extremes[i].size(); j++) cout << extremes[i][j] << "\t";
+            cout << endl;
+        }
+    
         if(i == 0)
         {
             currentSimplex = simplexStack[simplexStack.size()-1];
@@ -453,7 +529,9 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
         else
         {
             k = 0;
-            while(simplexStack[k].MultiplyPointsByNormal(extremes[i]) >= simplexStack[k].PlaneVal() - epsilon) 
+            while( (!relativeDistance && simplexStack[k].MultiplyPointsByNormal(extremes[i]) >= simplexStack[k].PlaneVal() - epsilon) ||
+                   (relativeDistance && 
+                        (simplexStack[k].MultiplyPointsByNormal(extremes[i]) - simplexStack[k].PlaneVal())/abs(simplexStack[k].PlaneVal()) >= - epsilon) )
             {
 	        // changed the order of k++ and test so the loop doesn't bomb when k = size.
                 k++;
@@ -467,14 +545,9 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
             simplexStack.erase(simplexStack.begin() + k);
             
         }
-        if(DEBUG)
-        {
-            cout << "Adding point: ";
-            for(unsigned int j = 0; j < extremes[i].size(); j++) cout << extremes[i][j] << "\t";
-            cout << endl;
-        }
+        
         simplicesToSplit.push_back(currentSimplex);
-        CheckIfAdjacentsAreShadowed(simplexStack, simplicesToSplit, currentSimplex, extremes[i], numObjectives, epsilon*epsilon);
+        CheckIfAdjacentsAreShadowed(simplexStack, simplicesToSplit, currentSimplex, extremes[i], numObjectives, relativeDistance, 0.000000001);//epsilon*epsilon);
         
         if(DEBUG) 
         {
@@ -487,7 +560,7 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
         for(unsigned int j = 0; j < simplicesToSplit.size(); j++) 
         {
             if(DEBUG) simplicesToSplit[j].WriteOctaveCodeToPlotSimplex(false);
-            AddNewSimplices(simplexStack, simplicesToSplit[j], extremes[i], NormalizeObjectiveMultipliers(), false, epsilon);
+            AddNewSimplices(simplexStack, simplicesToSplit[j], extremes[i], NormalizeObjectiveMultipliers(), false, relativeDistance, epsilon);
         }
         
         if(simplicesToSplit.size() > 1) deleteRepeats(simplexStack, l);
@@ -502,12 +575,34 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
             for(unsigned int j = 0; j < simplexStack.size(); j++) simplexStack[j].WriteOctaveCodeToPlotSimplex(true);
             cout << "**************************" << endl;
         }
+        
+        if(SCAN_FOR_NEGATIVE_NORMAL)
+        {
+            scanForNegativeNormal(simplexStack);
+        }
     }
+    
+    cout << "Finished adding initial simplices, entering body of the simplex generation process." << endl;
     
     k = max(1, int(simplexStack.size())-1);
     while(k > 0 && iterator < maxIter)
     {
+/*        if(iterator == 5080) DEBUG = true;*/
         iterator++;
+        
+        if(showProgress && iterator % showProgressIterations == 0)
+        {
+            for(unsigned int j = 0; j < simplexStack.size(); j++) 
+            {
+                if(simplexStack[j].GetSaveForSolution()) numSaved++;
+/*                simplexStack[j].WriteOctaveCodeToPlotSimplex(true);*/
+            }
+            cout << "Summary after iteration " << iterator << ":" << endl;
+            cout << "Number of Simplices in List: " << simplexStack.size() << "\tNumber Saved: " << numSaved << "\tNumber left to search: " << simplexStack.size() - numSaved << endl;
+            cout << "------------------------------------------------------\n";
+            numSaved = 0;
+        }
+        
         if(DEBUG)
         {
             cout << "-----------------------------------------------------------------------------------" << endl;
@@ -576,7 +671,8 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
               	cout << "Distance to simplex: " << currentSimplex.MultiplyPointsByNormal(point) - (currentSimplex.PlaneVal() - epsilon) << "\nIn Front of An Adjacent: " << PointIsInFrontOfAnAdjacent(simplexStack, currentSimplex, point, epsilon) << endl;
           	}
           	
-          	if(currentSimplex.MultiplyPointsByNormal(point) < currentSimplex.PlaneVal() - epsilon)// || PointIsInFrontOfAnAdjacent(simplexStack, currentSimplex, point, epsilon))
+          	if( (!relativeDistance && currentSimplex.MultiplyPointsByNormal(point) < currentSimplex.PlaneVal() - epsilon) ||
+          	    (relativeDistance && (currentSimplex.MultiplyPointsByNormal(point) - currentSimplex.PlaneVal())/abs(currentSimplex.PlaneVal()) < - epsilon) )
           	{
           	    if(DEBUG)
           	    {
@@ -585,7 +681,7 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
           	    }
           	    
           	    simplicesToSplit.push_back(currentSimplex);
-                CheckIfAdjacentsAreShadowed(simplexStack, simplicesToSplit, currentSimplex, point, numObjectives, epsilon*epsilon);
+                CheckIfAdjacentsAreShadowed(simplexStack, simplicesToSplit, currentSimplex, point, numObjectives, relativeDistance, 0.000000001);//epsilon*epsilon);
                 
                 if(DEBUG) cout << "Size of simplicesToSplit: " << simplicesToSplit.size() << endl;
                 if(DEBUG) cout << "Size of simplexStack: " << simplexStack.size() << endl;
@@ -602,7 +698,7 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
                 l = simplexStack.size();
                 for(unsigned int j = 0; j < simplicesToSplit.size(); j++) 
                 {
-                    AddNewSimplices(simplexStack, simplicesToSplit[j], point, NormalizeObjectiveMultipliers(), false, epsilon);
+                    AddNewSimplices(simplexStack, simplicesToSplit[j], point, NormalizeObjectiveMultipliers(), false, relativeDistance, epsilon);
                 }
                 
                 if(DEBUG) cout << "Size of simplexStack after adding: " << simplexStack.size() << endl;
@@ -626,6 +722,11 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
           	    if(DEBUG) cout << "No new point found" << endl;
           	}
       	}
+      	
+      	if(SCAN_FOR_NEGATIVE_NORMAL)
+        {
+            scanForNegativeNormal(simplexStack);
+        }
     }
     if(iterator == maxIter)
     {
@@ -878,7 +979,7 @@ vector<double> MultiobjectiveProblem::LexicographicMinimization(int i)
 }
 
 void AddNewSimplices(   vector<Simplex> & simplexStack, const Simplex & currentSimplex, const vector<double> & point, bool normalize, bool useAdjacent, 
-                        double epsilon)
+                        bool relativeDistance, double epsilon)
 {
     vector< vector<double> > extremePoints = currentSimplex.GetExtremePoints();
     int dim = currentSimplex.GetDimension();
@@ -886,6 +987,7 @@ void AddNewSimplices(   vector<Simplex> & simplexStack, const Simplex & currentS
     Simplex temp2(dim);
     int simplexIndex = 0;
     int newPointIndex = 0;
+    bool save = currentSimplex.GetSaveForSolution();
     
     epsilon *= epsilon;
     
@@ -898,7 +1000,9 @@ void AddNewSimplices(   vector<Simplex> & simplexStack, const Simplex & currentS
         if(useAdjacent)
         {
           	temp2 = currentSimplex.FindAdjacentContainingOriginalPoints(simplexStack, simplexIndex, newPointIndex, i, false);
-          	if(temp2.GetDimension() > 0 && temp2.MultiplyPointsByNormal(point) < temp2.PlaneVal() - epsilon)
+          	if( temp2.GetDimension() > 0 && 
+          	    ((!relativeDistance && temp2.MultiplyPointsByNormal(point) < temp2.PlaneVal() - epsilon) || 
+          	     (relativeDistance && (temp2.MultiplyPointsByNormal(point) - temp2.PlaneVal())/abs(temp2.PlaneVal()) < - epsilon) ) )
           	{
           	    if(DEBUG) 
           	    {
@@ -916,6 +1020,7 @@ void AddNewSimplices(   vector<Simplex> & simplexStack, const Simplex & currentS
       	                }
       	                temp.AddExtreme(point, normalize);
       	                if(DEBUG) temp.WriteOctaveCodeToPlotSimplex(true);
+      	                if(save) temp.SaveForSolution();
                         simplexStack.push_back(temp);
                         if(SCAN_FOR_REPEATS)
                         {
@@ -943,6 +1048,7 @@ void AddNewSimplices(   vector<Simplex> & simplexStack, const Simplex & currentS
                 }
                 temp.AddExtreme(point, normalize);
                 if(DEBUG) temp.WriteOctaveCodeToPlotSimplex(true);
+                if(save) temp.SaveForSolution();
                 simplexStack.push_back(temp);
                 if(SCAN_FOR_REPEATS)
                 {
@@ -958,6 +1064,7 @@ void AddNewSimplices(   vector<Simplex> & simplexStack, const Simplex & currentS
             }
             temp.AddExtreme(point, normalize);
             if(DEBUG) temp.WriteOctaveCodeToPlotSimplex(true);
+            if(save) temp.SaveForSolution();
             simplexStack.push_back(temp);
 /*            if(SCAN_FOR_REPEATS)*/
 /*            {*/
@@ -1128,7 +1235,7 @@ bool SplitSimplexInTwoUsingPoint(const Simplex & s, const vector<double> & point
 /*}*/
 
 void CheckForSimplicesThatNeedReplaced( vector<Simplex> & simplexStack, int & simplexIndex, int & newPointIndex, const int & numObjectives, 
-                                        const vector<double> & newPoint, bool normalize, double epsilon)
+                                        const vector<double> & newPoint, bool normalize, bool relativeDistance, double epsilon)
 {
     int k = simplexStack.size() - numObjectives;
 /*    int l = k;*/
@@ -1196,7 +1303,9 @@ void CheckForSimplicesThatNeedReplaced( vector<Simplex> & simplexStack, int & si
         else
         {
 /*            if(temp2.GetDimension() > 0) cout << temp2.MultiplyPointsByNormal(newPoint) << "\t" << temp2.PlaneVal() - epsilon << "\t" << temp2.MultiplyPointsByNormal(newPoint) - (temp2.PlaneVal() - epsilon) << endl;*/
-            if(temp2.GetDimension() > 0 && temp2.MultiplyPointsByNormal(newPoint) < temp2.PlaneVal() - epsilon)
+            if( temp2.GetDimension() > 0 && 
+          	    ((!relativeDistance && temp2.MultiplyPointsByNormal(newPoint) < temp2.PlaneVal() - epsilon) || 
+          	     (relativeDistance && (temp2.MultiplyPointsByNormal(newPoint) - temp2.PlaneVal())/abs(temp2.PlaneVal()) < - epsilon) ) )
             {
                 if(DEBUG)
                 {
@@ -1237,7 +1346,7 @@ void CheckForSimplicesThatNeedReplaced( vector<Simplex> & simplexStack, int & si
     return;
 }
 
-void CheckIfAdjacentsAreShadowed( vector<Simplex> & simplexStack, vector<Simplex> & simplicesToSplit, const Simplex & currentSimplex, const vector<double> & newPoint, const int & numObjectives, double epsilon)
+void CheckIfAdjacentsAreShadowed( vector<Simplex> & simplexStack, vector<Simplex> & simplicesToSplit, const Simplex & currentSimplex, const vector<double> & newPoint, const int & numObjectives, bool relativeDistance, double epsilon)
 {
     Simplex temp(numObjectives);
     Simplex temp2(numObjectives);
@@ -1256,7 +1365,9 @@ void CheckIfAdjacentsAreShadowed( vector<Simplex> & simplexStack, vector<Simplex
     for(int i = 0; i < numObjectives; i++)
     {
         temp2 = currentSimplex.FindAdjacentContainingOriginalPoints(simplexStack, a, b, i, false);
-        if(temp2.GetDimension() > 0 && temp2.MultiplyPointsByNormal(newPoint) < temp2.PlaneVal() - epsilon)
+        if( temp2.GetDimension() > 0 && 
+          	    ((!relativeDistance && temp2.MultiplyPointsByNormal(newPoint) <= temp2.PlaneVal() - epsilon) || 
+          	     (relativeDistance && (temp2.MultiplyPointsByNormal(newPoint) - temp2.PlaneVal())/abs(temp2.PlaneVal()) <= - epsilon) ) )
         {
             if(DEBUG)
             {
@@ -1268,7 +1379,7 @@ void CheckIfAdjacentsAreShadowed( vector<Simplex> & simplexStack, vector<Simplex
             simplexStack.erase(simplexStack.begin() + a);
             
             temp = simplicesToSplit[simplicesToSplit.size()-1];
-            CheckIfAdjacentsAreShadowed( simplexStack, simplicesToSplit, temp, newPoint, numObjectives, epsilon);
+            CheckIfAdjacentsAreShadowed( simplexStack, simplicesToSplit, temp, newPoint, numObjectives, relativeDistance, epsilon);
             if(DEBUG)
             {
                  cout << "After returning from a recursion, the current simplex is: " << endl;
@@ -1341,6 +1452,20 @@ void scanForRepeats(const vector<Simplex> & simplexStack)
                 cout << "**************************" << endl;
             }
             exit(0);
+        }
+    }
+}
+
+void scanForNegativeNormal(const vector<Simplex> & simplexStack)
+{
+    for(unsigned int i = 0; i < simplexStack.size(); i++)
+    {
+        if(!simplexStack[i].IsPositive())
+        {
+            cout << "There is a simplex on the stack that is not oriented correctly! Exiting!\n";
+            cout << "The culprit is: \n";
+            simplexStack[i].WriteOctaveCodeToPlotSimplex(true);
+            exit(1);
         }
     }
 }
@@ -1446,6 +1571,35 @@ void deleteRepeats(vector<Simplex> & simplexStack, int startingScanIndex)
     {
         if(simplexStack[i].deleteRepeats(simplexStack, i + 1)) simplexStack.erase(simplexStack.begin() + i);
         else i++;
+    }
+    
+    return;
+}
+
+void CheckForDomination(const vector< vector<double> > & points, const double & epsilon)
+{
+    unsigned int k = points.size() - 1;
+    bool oldDominatesNew = true, newDominatesOld = true;
+    
+    for(unsigned int i = 0; i < points.size() - 1; i++)
+    {
+        oldDominatesNew = true;
+        newDominatesOld = true;
+        if(DEBUG) cout << "Comparing extreme points " << i + 1 << " and " << k + 1 << ".\n";
+        for(unsigned int j = 0; j < points[i].size(); j++)
+        {
+            if(DEBUG) cout << "\t " << j+1 << "th elements: " << points[i][j] << "\t" << points[k][j] << endl;
+            if(points[k][j] > points[i][j] + epsilon) newDominatesOld = false;
+            if(points[i][j] > points[k][j] + epsilon) oldDominatesNew = false;
+            if(DEBUG) cout << "\t\t newDominatesOld: " << newDominatesOld << "\toldDominatesNew: " << oldDominatesNew << endl;
+            if(!newDominatesOld && !oldDominatesNew) break;
+            if(j == points.size() - 1)
+            {
+                cout << "There is no conflict between objectives " << i+1 << " and " << k+1 << ". It does not make sense to continue. ";
+                cout << "You may opt to remove one of these objectives and resolve. Exiting!\n";
+                exit(0);
+            }
+        }
     }
     
     return;

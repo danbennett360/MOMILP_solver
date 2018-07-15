@@ -31,5 +31,7 @@ using namespace std;
 extern bool DEBUG;
 extern bool SCAN_FOR_REPEATS;
 extern bool SAVE_POINTS;
+extern bool SCAN_FOR_NEGATIVE_NORMAL;
+extern double EPSILON;
 
 #endif

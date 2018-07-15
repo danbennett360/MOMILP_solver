@@ -12,6 +12,7 @@ of nondominated solutions.*/
 Simplex::Simplex(int i)
 {
     dimension = i;
+    epsilon = EPSILON;
 }
 
 void Simplex::AddExtreme(const vector<double> & v, bool normalize)
@@ -50,8 +51,8 @@ void Simplex::GenerateNormal()
     vector< vector<double> > vectorsInHyperplane;
     vector< vector<double> > submat;
     vector<double> temp;
-    bool allSameSign = true;
-    bool isZero = true;
+/*    bool allSameSign = true;*/
+/*    bool isZero = true;*/
     double val = 0.;
     
     for(int i = 0; i < dimension-1; i++)
@@ -88,17 +89,17 @@ void Simplex::GenerateNormal()
             val = -1.*Determinant(submat);
         }
 /*        cout << "Val: " << val << "\tNormal Size: " << normal.size() << "\tisZero: " << isZero << "\tisPositive: " << isPositive << "\tallSameSign: " << allSameSign << endl;*/
-        if(normal.size() > 0 && !isZero && ((val < 0 && isPositive) || (val > 0 && !isPositive))) allSameSign = false;
-        if(val < -epsilon) isPositive = false;
-        if(abs(val) > epsilon) isZero = false;
+/*        if(normal.size() > 0 && !isZero && ((val < -epsilon && isPositive) || (val > epsilon && !isPositive))) allSameSign = false;*/
+/*        if(val < -epsilon) isPositive = false;*/
+/*        if(abs(val) > epsilon) isZero = false;*/
         normal.push_back(val); 
     }
     
-    if(allSameSign && !isPositive)
-    {
-        for(int i = 0; i < dimension; i++) normal[i] = -1.*normal[i];
-        isPositive = true;
-    }
+/*    if(allSameSign && !isPositive)*/
+/*    {*/
+/*        for(int i = 0; i < dimension; i++) normal[i] = -1.*normal[i];*/
+/*        isPositive = true;*/
+/*    }*/
 /*    else if(!allSameSign) cout << "There is an error! A normal vector did not have all positive weights!" << endl;*/
 
     if(DEBUG) 
@@ -176,6 +177,8 @@ void Simplex::PrintData() const
 void Simplex::NormalizeNormal()
 {
     double magnitude = 0.;
+    int sign = 0;
+    bool allSameSign = true;
     
     for(int i = 0; i < dimension; i++)
     {
@@ -190,6 +193,21 @@ void Simplex::NormalizeNormal()
         {
             cout << "Error. There is a normal component that doesn't make sense. Exiting!\n";
             exit(0);
+        }
+        if(!sign)
+        {
+            if(normal[i] > epsilon) sign = 1;
+            else if(normal[i] < -epsilon) sign = -1;
+        }
+        else if((sign > 0 && normal[i] < -epsilon) || (sign < 0 && normal[i] > epsilon)) allSameSign = false;
+    }
+    
+    if(!allSameSign) isPositive = false;
+    else if(sign < 0)
+    {
+        for(int i = 0; i < dimension; i++)
+        {
+            normal[i] = -normal[i];
         }
     }
     
@@ -290,7 +308,7 @@ void Simplex::WriteOctaveCodeToPlotSimplex(bool a) const
     return;
 }
 
-bool Simplex::IsPositive()
+bool Simplex::IsPositive() const
 {
     return isPositive;
 }
@@ -358,7 +376,7 @@ Simplex Simplex::FindAdjacentContainingOriginalPoints(const vector<Simplex> & si
                         tempBool = (GetExtremePoint(l) == temp.GetExtremePoint(m));
                         couldBeIt = max(couldBeIt, tempBool);
                         if(tempBool && !matches[m]) matches[m] = true;
-                        if(DEBUG) cout << "tempBool: " << tempBool << "\tl:" << l << "\tm:" << m << "\tmatches[m]: " << matches[m] << endl; 
+/*                        if(DEBUG) cout << "tempBool: " << tempBool << "\tl:" << l << "\tm:" << m << "\tmatches[m]: " << matches[m] << endl; */
                         m++;
                     }
                     l++;

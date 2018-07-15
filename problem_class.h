@@ -55,6 +55,10 @@ class MultiobjectiveProblem
         bool storeObjectivesInMainProb = true;
         bool normalizeObjectiveMultipliers = true;
         bool useLexicographicOptimization = false;
+        bool showProgress = false;
+        int showProgressIterations = 500;
+        int maxIterations = 100000;
+        bool relativeDistance = false;
   public:
     	void 	    SetEnv(CPXENVptr e);
     	CPXENVptr	GetEnv();
@@ -81,7 +85,7 @@ class MultiobjectiveProblem
 };
 
 void AddNewSimplices(   vector<Simplex> & simplexStack, const Simplex & currentSimplex, const vector<double> & point, bool normalize, bool useAdjacent, 
-                        double epsilon);
+                        bool relativeDistance, double epsilon);
                         
 double GetAngleBetween(const Simplex & s1, const Simplex & s2, bool normalize);
 
@@ -90,11 +94,14 @@ double GetVectorMagnitude(const vector<double> & v);
 bool SplitSimplexInTwoUsingPoint(const Simplex & s, const vector<double> & point, vector<Simplex> & simplexStack, int newPointIndex, bool normalize, int startingScanIndex);
 
 void CheckForSimplicesThatNeedReplaced( vector<Simplex> & simplexStack, int & simplexIndex, int & newPointIndex, const int & numObjectives, 
-                                        const vector<double> & newPoint, bool normalize, double epsilon);
+                                        const vector<double> & newPoint, bool normalize, bool relativeDistance, double epsilon);
                                         
-void CheckIfAdjacentsAreShadowed( vector<Simplex> & simplexStack, vector<Simplex> & simplicesToSplit, const Simplex & currentSimplex, const vector<double> & newPoint, const int & numObjectives, double epsilon);
+void CheckIfAdjacentsAreShadowed( vector<Simplex> & simplexStack, vector<Simplex> & simplicesToSplit, const Simplex & currentSimplex, 
+                                  const vector<double> & newPoint, const int & numObjectives, bool relativeDistance, double epsilon);
                                         
 void scanForRepeats(const vector<Simplex> & simplexStack);
+
+void scanForNegativeNormal(const vector<Simplex> & simplexStack);
 
 bool PointIsInFrontOfAnAdjacent(const vector<Simplex> & simplexStack, const Simplex & simp, const vector<double> & point, const double & epsilon);
 
@@ -103,5 +110,7 @@ void WritePoints(const vector<Simplex> & simplexStack);
 vector<string> GetVarNames(const CPXENVptr & env, const CPXLPptr & lp, int numCols);
 
 void deleteRepeats(vector<Simplex> & simplexStack, int startingScanIndex);
+
+void CheckForDomination(const vector< vector<double> > & points, const double & epsilon);
 
 #endif

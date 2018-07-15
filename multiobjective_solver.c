@@ -16,6 +16,8 @@ of nondominated solutions.*/
 bool DEBUG = false;
 bool SCAN_FOR_REPEATS = false;
 bool SAVE_POINTS = true;
+bool SCAN_FOR_NEGATIVE_NORMAL = false;
+double EPSILON = .000000001;
 
 int main(int argc, char **argv)
 {
