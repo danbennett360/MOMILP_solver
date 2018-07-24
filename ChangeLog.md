@@ -13,3 +13,12 @@
  * Moved check for positive normal vector components to after the vector has been normalized and added that these checks have epsilon tolerance. This has two important implications: (i) -normalize is no longer a valid command line flag because normalization is necessary for correct performance, (ii) not using epsilon tolerance when checking the sign of normal components was causing a vector such as (-2e-16, 34, 5, 15) to be seen as problematic, i.e., having a negative component even though the 'negative' component is essentially zero (this was the cause of the 'There is a simplex on the stack that is not oriented correctly! Exiting!' error).
  * Added a global epsilon so that it is easy to set the epsilon value for the simplex class.
  * Added a check for dominated points in the computation of the extreme points that form the initial simplex. If any of these points are repeated or dominate one another it means that there is a pair of objectives that are not conflicting, i.e., they always produce the same solutions, and thus both objectives from the pair need not be considered together.
+ 
+ ## July 23, 2018
+ * Modified Makefile to only add CPLEX flags if CPLEX will be used. Currently will not compile by just calling "make", must use "make CPLEX=something".
+ 
+ ## July 24, 2018
+ * Finished adding all the routines for GLPK functionality. Can now compile with either "make" (glpk) or "make CPLEX=something" (cplex).
+ * Added a new command line flag "-interior" (T or F) which utilizes the interior point solver in glpk. Does nothing if using CLPEX.
+ * There is still a bug in GLPK optimization -- it is not producing correct solutions. I will fix later.
+ 

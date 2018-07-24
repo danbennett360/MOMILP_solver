@@ -6,7 +6,12 @@ This work is a start toward the solution of multiobjective mixed-integer linear 
 Initially we will just build a data structure for storing the (minimally excessive) set 
 of nondominated solutions.*/
 
-#include "cplex.h"
+#ifdef CPLEX
+    #include "cplex.h"
+#else
+    #include <glpk.h>
+#endif
+
 #include "simplex_class.h"
 
 Simplex::Simplex(int i)

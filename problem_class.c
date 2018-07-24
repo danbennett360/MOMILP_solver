@@ -6,20 +6,27 @@ This work is a start toward the solution of multiobjective mixed-integer linear 
 Initially we will just build a data structure for storing the (minimally excessive) set 
 of nondominated solutions.*/
 
-#include "cplex.h"
+#ifdef CPLEX
+    #include "cplex.h"
+#else
+    #include <glpk.h>
+#endif
+
 #include "problem_class.h"
 #include "point_class.h"
 
-void MultiobjectiveProblem::SetEnv(CPXENVptr e)
-{
-	env = e;
-	return;
-}
+#ifdef CPLEX
+    void MultiobjectiveProblem::SetEnv(CPXENVptr e)
+    {
+	    env = e;
+	    return;
+    }
 
-CPXENVptr MultiobjectiveProblem::GetEnv()
-{
-	return env;
-}
+    CPXENVptr MultiobjectiveProblem::GetEnv()
+    {
+	    return env;
+    }
+#endif
 
 void MultiobjectiveProblem::SetNumObj(int a)
 {
@@ -27,26 +34,46 @@ void MultiobjectiveProblem::SetNumObj(int a)
 	return;
 }
 
-void MultiobjectiveProblem::AddLP(CPXLPptr lp)
-{
-	lps.push_back(lp);
-	return;
-}
+#ifdef CPLEX
+    void MultiobjectiveProblem::AddLP(CPXLPptr lp)
+    {
+	    lps.push_back(lp);
+	    return;
+    }
+#else
+    void MultiobjectiveProblem::AddLP(glp_prob *lp)
+    {
+	    lps.push_back(lp);
+	    return;
+    }
+#endif
 
 int MultiobjectiveProblem::GetNumObj()
 {
 	return numObjectives;
 }
 
-CPXLPptr MultiobjectiveProblem::GetLP(int i)
-{
-	return lps[i];
-}
+#ifdef CPLEX
+    CPXLPptr MultiobjectiveProblem::GetLP(int i)
+    {
+	    return lps[i];
+    }
+#else
+    glp_prob *MultiobjectiveProblem::GetLP(int i)
+    {
+	    return lps[i];
+    }
+#endif
 
 void MultiobjectiveProblem::SetNumRowsAndCols()
 {
-     numCols = CPXgetnumcols (env, lps[0]);
-     numRows = CPXgetnumrows (env, lps[0]);
+    #ifdef CPLEX
+         numCols = CPXgetnumcols (env, lps[0]);
+         numRows = CPXgetnumrows (env, lps[0]);
+    #else
+         numCols = glp_get_num_cols(lps[0]);
+         numRows = glp_get_num_rows(lps[0]);
+    #endif
 }
 
 void MultiobjectiveProblem::ConvertLPs()
@@ -57,29 +84,62 @@ void MultiobjectiveProblem::ConvertLPs()
 	double coef = 0.;
 	double *objCoefs;
 	objCoefs = new double[numCols];
+	int *colIndices;
+	colIndices = new int[numCols];
+	double *rowCoefs;
+	rowCoefs = new double[numCols];
 	double rhs[1] = {0.};
 	char new_sense[1] = {'L'};
 	int k = 0;
 	vector<double> temp(numCols);
 	
-	status = CPXgetsense (env, lps[k], row_sense, 0, numRows-1);
+	#ifdef CPLEX
+	    status = CPXgetsense (env, lps[k], row_sense, 0, numRows-1);
+	#else
+	    for(int i = 0; i < numRows; i++)
+	    {
+	        status = glp_get_row_type(lps[k], i+1);
+	        if(status == GLP_LO) row_sense[i] = 'G';
+	        else if(status == GLP_UP) row_sense[i] = 'L';
+	        else if(status == GLP_FX) row_sense[i] = 'E';
+	        else
+	        {
+	            cout << "There is a row of type " << status << ". Write code to deal with this!\n";
+	            exit(1);
+	        }
+	    }
+	#endif
 	
 	for(int i = 0; i < numRows; i++)
 	{
+	    #ifndef CPLEX
+	        status = glp_get_mat_row(lps[k], i+1, colIndices, rowCoefs);
+	    #endif
 		if(row_sense[i] == 'G')
 		{
-			for(int j=0; j < numCols; j++)
-			{
-				status = CPXgetcoef (env, lps[k], i, j, &coef);
-				if(coef != 0.)
-				{
-					status = CPXchgcoef (env, lps[k], i, j, -coef);
-				}
-			}
-			status = CPXgetrhs (env, lps[k], rhs, i, i);
-			rhs[0] = -rhs[0];
-			status = CPXchgrhs (env, lps[k], 1, &i, rhs);
-			status = CPXchgsense (env, lps[k], 1, &i, new_sense);
+		    #ifdef CPLEX
+			    for(int j=0; j < numCols; j++)
+			    {
+				    status = CPXgetcoef (env, lps[k], i, j, &coef);
+				    if(coef != 0.)
+				    {
+					        status = CPXchgcoef (env, lps[k], i, j, -coef);
+				    }
+			    }
+			    status = CPXgetrhs (env, lps[k], rhs, i, i);
+			    rhs[0] = -rhs[0];
+			    status = CPXchgrhs (env, lps[k], 1, &i, rhs);
+			    status = CPXchgsense (env, lps[k], 1, &i, new_sense);
+			#else
+			    for(int j = 0; j < status; j++)
+			    {
+			        rowCoefs[j] = -rowCoefs[j];
+			    }
+			    rhs[0] = glp_get_row_lb(lps[k], i+1);
+			    rhs[0] = -rhs[0];
+			    glp_set_mat_row(lps[k], i+1, status, colIndices, rowCoefs);
+			    glp_set_row_bnds(lps[k], i+1, GLP_UP, NULL, rhs[0]);
+			#endif
 		}
 		if(!containsEqualities && row_sense[i] == 'E')
 		{
@@ -90,14 +150,33 @@ void MultiobjectiveProblem::ConvertLPs()
 
     for(int i = 0; i < numObjectives; i++)
     {
-       	status = CPXgetobj(env, lps[i], objCoefs, 0, numCols -1);
-       	if ( status ) 
-       	{
-         		printf ("CPXgetobj, Failed to read the objective coef. of reduced myBOMIP1, error code %d\n", status);
-         		exit(0);
-     	}
+        #ifdef CPLEX
+           	status = CPXgetobj(env, lps[i], objCoefs, 0, numCols -1);
+           	if ( status ) 
+           	{
+             		printf ("CPXgetobj, Failed to read the objective coef. of reduced myBOMIP1, error code %d\n", status);
+             		exit(0);
+         	}
+        #else
+/*            glp_write_lp(lps[i], NULL, "prob.lp");*/
+/*            exit(0);*/
+/*            cout << glp_version() << endl;*/
+/*            exit(0);*/
+/*            cout << "------------------------\n" << glp_get_num_cols(lps[i]) << glp_get_obj_coef(lps[i], 1) << endl;*/
+            for(int j = 0; j < numCols - 1; j++)
+            {
+                objCoefs[j] = glp_get_obj_coef(lps[i], j+1);
+            }
+     	#endif
      	
-     	status = CPXgetobjsen (env, lps[i]);
+     	#ifdef CPLEX
+     	    status = CPXgetobjsen (env, lps[i]);
+     	#else
+     	    status = glp_get_obj_dir(lps[i]);
+     	    if(status == GLP_MIN) status = 1;
+     	    else if(status == GLP_MAX) status = -1;
+     	    else status = 0;
+     	#endif
      	if ( status == 0 ) 
        	{
          		printf ("When trying to get objective sense, found that no problem object exists, error code %d\n", status);
@@ -109,18 +188,28 @@ void MultiobjectiveProblem::ConvertLPs()
      		{
      			objCoefs[j] = -objCoefs[j];
      		}
-     		status = CPXchgobj (env, lps[i], numCols, &indices[0], objCoefs);
-     		if ( status ) 
-       	    {
-         		printf ("Error changing objective, error code %d\n", status);
-         		exit(0);
-         	}
-     		status = CPXchgobjsen (env, lps[i], CPX_MIN);
-     		if ( status ) 
-       	    {
-         		printf ("Error changing sense of objective 1, error code %d\n", status);
-         		exit(0);
-         	}
+     		
+     		#ifdef CPLEX
+         		status = CPXchgobj (env, lps[i], numCols, &indices[0], objCoefs);
+         		if ( status ) 
+           	    {
+             		printf ("Error changing objective, error code %d\n", status);
+             		exit(0);
+             	}
+         		status = CPXchgobjsen (env, lps[i], CPX_MIN);
+         		if ( status ) 
+           	    {
+             		printf ("Error changing sense of objective 1, error code %d\n", status);
+             		exit(0);
+             	}
+            #else
+                for(int j = 0; j < numCols; j++)
+                {
+                    glp_set_obj_coef(lps[i], j+1, objCoefs[j]);
+                }
+                glp_set_obj_dir(lps[i], GLP_MIN);
+         	#endif
+         	
          	memcpy(&temp[0], &objCoefs[0], numCols*sizeof(double));
          	objectiveCoefs.push_back(temp);
      	}
@@ -131,17 +220,24 @@ void MultiobjectiveProblem::ConvertLPs()
      	}
 	}
 	
-	mainProb = CPXcloneprob (env, lps[k], &status);
-  	if ( status ) 
-  	{
-    		printf ("Failed to clone problem 1.\n");
-    		exit(0);
-  	}
+	#ifdef CPLEX
+	    mainProb = CPXcloneprob (env, lps[k], &status);
+      	if ( status ) 
+      	{
+        		printf ("Failed to clone problem 1.\n");
+        		exit(0);
+      	}
+    #else
+        mainProb = glp_create_prob();
+        glp_copy_prob(mainProb, lps[k], GLP_ON);
+  	#endif
   	
 /*  	status = CPXwriteprob (env, mainProb, "mainprob.lp", "LP");*/
   	
   	delete[] row_sense; 
   	delete[] objCoefs;
+  	delete[] rowCoefs;
+  	delete[] colIndices;
     	
 	return;
 }
@@ -151,9 +247,9 @@ void MultiobjectiveProblem::AddRowsForObjectives()
      vector<double> lb(numObjectives, -infinity);
      vector<double> ub(numObjectives, infinity);
      vector<char> sense(numObjectives, 'E');
-     vector<int> rowlist(numCols + numObjectives, numRows - 2);
-	 vector<int> collist(numCols + numObjectives, 0);
-	 vector<double> vallist(numCols + numObjectives, 0.);  	
+     vector<int> rowlist(numCols + numObjectives + 1, numRows - 2);
+	 vector<int> collist(numCols + numObjectives + 1, 0);
+	 vector<double> vallist(numCols + numObjectives + 1, 0.);  	
      int status = 0;
      double dZero = 0.;
      
@@ -164,21 +260,34 @@ void MultiobjectiveProblem::AddRowsForObjectives()
 /*          cout << "i: " << i << endl;*/
      }
 
-	status = CPXnewcols (env, mainProb, numObjectives, NULL, &lb[0], &ub[0], NULL, NULL); 
-	if ( status ) 
-  	{
-    		printf ("CPXnewcols, Failed to add additional variables to the model, error code %d\n", status);
-    		exit(0);
-    	}
+    #ifdef CPLEX
+	    status = CPXnewcols (env, mainProb, numObjectives, NULL, &lb[0], &ub[0], NULL, NULL); 
+	    if ( status ) 
+      	{
+        		printf ("CPXnewcols, Failed to add additional variables to the model, error code %d\n", status);
+        		exit(0);
+        }
+    #else
+        status = glp_add_cols(mainProb, numObjectives);
+        for(int i = status; i < status + numObjectives; i++) 
+        {
+            glp_set_col_bnds(mainProb, i, GLP_FR, NULL, NULL);
+        }
+    #endif
 	
 	numCols += numObjectives;
 	
-	status = CPXnewrows (env, mainProb, numObjectives, NULL, &sense[0], NULL, NULL) ; 
-	if ( status ) 
-  	{
-    		printf ("CPXgetobj, Failed to add additional constraints to the model, error code %d\n", status);
-    		exit(0);
-    }
+	#ifdef CPLEX
+	    status = CPXnewrows (env, mainProb, numObjectives, NULL, &sense[0], NULL, NULL) ; 
+	    if ( status ) 
+      	{
+        		printf ("CPXgetobj, Failed to add additional constraints to the model, error code %d\n", status);
+        		exit(0);
+        }
+    #else
+        status = glp_add_rows(mainProb, numObjectives);
+        for(int i = status; i < status + numObjectives; i++) glp_set_row_bnds(mainProb, i, GLP_FX, 0., NULL);
+    #endif
     	
 	numRows += numObjectives;
 	
@@ -195,33 +304,61 @@ void MultiobjectiveProblem::AddRowsForObjectives()
      	    rowlist[i] = objectiveRowIndices[j];
      	    
 /*     	    cout << objectiveColIndices[j] << endl;*/
-     		collist[i] = i;
+            #ifdef CPLEX
+     		    collist[i] = i;
+     		#else 
+     		    collist[i+1] = i+1;
+     		#endif
      		
      		if(i < objectiveColIndices[j] && i < numCols - numObjectives)
      		{
 /*     		     cout << vallist[i] << endl;*/
 /*     		     cout << objectiveCoefs[j][i] << endl;*/
-     		     vallist[i] = objectiveCoefs[j][i];
+                 #ifdef CPLEX
+     		        vallist[i] = objectiveCoefs[j][i];
+     		     #else
+     		        vallist[i+1] = objectiveCoefs[j][i];
+     		     #endif
      		}
-     		else if(i == objectiveColIndices[j]) vallist[i] = -1;
-     		else vallist[i] = 0;
+     		else if(i == objectiveColIndices[j]) 
+     		{
+     		    #ifdef CPLEX
+     		        vallist[i] = -1;
+     		    #else
+     		        vallist[i+1] = -1;
+     		    #endif
+     		}
+     		else 
+     		{
+     		    #ifdef CPLEX
+     		        vallist[i] = 0;
+     		    #else
+     		        vallist[i+1] = 0;
+     		    #endif
+     		}
      	}
      	
-     	status = CPXchgcoeflist (env, mainProb, numCols, &rowlist[0], &collist[0], &vallist[0]);
-     	if ( status ) 
-   	    {
-     		printf ("CPXgchgcoeflist, Failed to set coefficients for first new row, error code %d\n", status);
-     		exit(0);
-     	}
-     	
-     	status = CPXchgrhs (env, mainProb, 1, &rowlist[0], &dZero);
-     	if ( status ) 
-   	    {
-     		printf ("CPXchgrhs, Failed to change rhs, error code %d\n", status);
-     		exit(0);
-     	}
+     	#ifdef CPLEX
+         	status = CPXchgcoeflist (env, mainProb, numCols, &rowlist[0], &collist[0], &vallist[0]);
+         	if ( status ) 
+       	    {
+         		printf ("CPXgchgcoeflist, Failed to set coefficients for first new row, error code %d\n", status);
+         		exit(0);
+         	}
+         	
+         	status = CPXchgrhs (env, mainProb, 1, &rowlist[0], &dZero);
+         	if ( status ) 
+       	    {
+         		printf ("CPXchgrhs, Failed to change rhs, error code %d\n", status);
+         		exit(0);
+         	}
+        #else
+/*            cout << "------------------------\n" << glp_get_num_cols(mainProb) << "\t" << glp_get_num_rows(mainProb) << endl;*/
+            glp_set_mat_row(mainProb, rowlist[0]+1, collist.size() - 1, &collist[0], &vallist[0]);
+     	#endif
 	}
-	
+/*	status = glp_write_lp(mainProb, NULL, "prob.lp");*/
+/*	exit(0);*/
 /*	status = CPXwriteprob (env, mainProb, "mainprob.lp", "LP");*/
 	
 	/*************************************************************************************/
@@ -323,6 +460,23 @@ void MultiobjectiveProblem::SetParamVals(int argc, char **argv)
                 }
                 i++;
             }
+            else if(!strcmp(argv[i],"-interior"))
+            {
+                i++;
+                if(toupper(argv[i][0]) == 'T')
+                {
+                    interiorPoint = true;
+                }
+                else if(toupper(argv[i][0]) == 'F')
+                {
+                    interiorPoint = false;
+                }
+                else
+                {
+                    cout << "Invalid value for flag '-interior', ignoring. Valid values are 'T' and 'F'." << endl;
+                }
+                i++;
+            }
             else if(!strcmp(argv[i],"-showprogress"))
             {
                 i++;
@@ -370,6 +524,7 @@ void MultiobjectiveProblem::SetParamVals(int argc, char **argv)
                     if(debugLevel >= 2) DEBUG = true;
                 }
                 i++;
+/*                cout << "Value of debug flag: " << debugLevel << "\tValue of DEBUG: " << DEBUG << endl;*/
             }
             else if(!strcmp(argv[i],"-reldist"))
             {
@@ -407,20 +562,25 @@ vector<Simplex> MultiobjectiveProblem::DichotomicSearch()
     int status = 0;
     vector<Simplex> retVec;
     
-    tempProb = CPXcloneprob (env, mainProb, &status);
-/*    cout << status << endl;*/
-    if ( status ) 
-  	{
-    		printf ("Failed to clone main problem.\n");
-    		exit(0);
-  	}
-  	
-  	status = CPXchgprobtype(env, tempProb, CPXPROB_LP);
-  	if ( status ) 
-  	{
-    		printf ("Failed to change the problem from a MIP to an LP.\n");
-    		exit(0);
-  	}
+    #ifdef CPLEX
+        tempProb = CPXcloneprob (env, mainProb, &status);
+    /*    cout << status << endl;*/
+        if ( status ) 
+      	{
+        		printf ("Failed to clone main problem.\n");
+        		exit(0);
+      	}
+      	
+      	status = CPXchgprobtype(env, tempProb, CPXPROB_LP);
+      	if ( status ) 
+      	{
+        		printf ("Failed to change the problem from a MIP to an LP.\n");
+        		exit(0);
+      	}
+    #else
+        tempProb = glp_create_prob();
+        glp_copy_prob(tempProb, mainProb, GLP_ON);
+  	#endif
   	
 /*  	status = CPXwriteprob (env, tempProb, "tempprob.lp", "LP");*/
   	
@@ -462,11 +622,18 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
         if(SAVE_POINTS) 
         {
             x = new double[numCols];
-            status = CPXgetx (env, tempProb, x, 0, numCols-1);
-            if ( status ) {
-        		printf ("%s(%d): CPXgetx, Failed to get x values,  error code %d\n", __FILE__, __LINE__, status);
-        		exit(0);
-      	    }
+            
+            #ifdef CPLEX
+                status = CPXgetx (env, tempProb, x, 0, numCols-1);
+                if ( status ) {
+            		printf ("%s(%d): CPXgetx, Failed to get x values,  error code %d\n", __FILE__, __LINE__, status);
+            		exit(0);
+          	    }
+          	#else
+          	    if(!interiorPoint) for(int j = 0; j < numCols; j++) x[j] = glp_get_col_prim(tempProb, j+1);
+          	    else for(int j = 0; j < numCols; j++) x[j] = glp_ipt_col_prim(tempProb, j+1);
+      	    #endif
+      	    
             if(storeObjectivesInMainProb) pointStack.push_back(Point(extremes[i], x, numCols-numObjectives));
             else pointStack.push_back(Point(extremes[i], x, numCols));
             delete[] x;
@@ -632,11 +799,20 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
     /*        status = CPXwriteprob (env, tempProb, "prob.lp", "LP");*/
     /*        exit(0);*/
             
-            status = CPXlpopt (env, tempProb);
-         	if ( status ) {
-            		printf ("%s(%d): CPXlpopt, Failed to solve tempProb,  error code %d\n", __FILE__, __LINE__, status);
-            		exit(0);
-          	}
+            #ifdef CPLEX
+                status = CPXlpopt (env, tempProb);
+             	if ( status ) {
+                		printf ("%s(%d): CPXlpopt, Failed to solve tempProb,  error code %d\n", __FILE__, __LINE__, status);
+                		exit(0);
+              	}
+            #else
+                if(interiorPoint) status = glp_interior(tempProb, NULL);
+                else status = glp_simplex(tempProb, NULL);
+                if ( status ) {
+                		printf ("%s(%d): GLPK failed to solve tempProb,  error code %d\n", __FILE__, __LINE__, status);
+                		exit(1);
+              	}
+          	#endif
           	
           	if(DEBUG)
           	{
@@ -650,11 +826,18 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
           	if(SAVE_POINTS) 
             {
                 x = new double[numCols];
-                status = CPXgetx (env, tempProb, x, 0, numCols-1);
-                if ( status ) {
-            		printf ("%s(%d): CPXgetx, Failed to get x values,  error code %d\n", __FILE__, __LINE__, status);
-            		exit(0);
-          	    }
+                
+                #ifdef CPLEX
+                    status = CPXgetx (env, tempProb, x, 0, numCols-1);
+                    if ( status ) {
+                		printf ("%s(%d): CPXgetx, Failed to get x values,  error code %d\n", __FILE__, __LINE__, status);
+                		exit(0);
+              	    }
+              	#else
+              	    if(!interiorPoint) for(int j = 0; j < numCols; j++) x[j] = glp_get_col_prim(tempProb, j+1);
+          	        else for(int j = 0; j < numCols; j++) x[j] = glp_ipt_col_prim(tempProb, j+1);
+          	    #endif
+          	    
 /*                pointStack.push_back(Point(point, x, numCols));*/
                 if(storeObjectivesInMainProb) pointStack.push_back(Point(point, x, numCols-numObjectives));
                 else pointStack.push_back(Point(point, x, numCols));
@@ -771,19 +954,23 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
     // bennett 6/18
     if(SAVE_POINTS) 
     {
-       varNames = GetVarNames(env, tempProb, numCols);
+        #ifdef CPLEX
+            varNames = GetVarNames(env, tempProb, numCols);
+        #else
+            varNames = GetVarNames(tempProb, numCols);
+        #endif
 
-       vector<Point>tmp;
-       bool append = false;
+        vector<Point>tmp;
+        bool append = false;
 
-       for (auto & tmpPt : pointStack) {
+        for (auto & tmpPt : pointStack) {
           if (find(tmp.begin(),tmp.end(),tmpPt) == tmp.end())  {
 	      tmp.push_back(tmpPt);
 	      tmpPt.WritePointToFile("points.txt", varNames, append);
 	      append = true;
-	  }
+	      }
 
-       }
+        }
     }
     
     return simplexStack;
@@ -791,10 +978,15 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
 
 void MultiobjectiveProblem::ChangeTempObjCoefs(int i)
 {
-    int status = CPXchgobj (env, tempProb, objectiveColIndices[0], &indices[0], &objectiveCoefs[i][0]);
-	if ( status ) {
-		printf ("Failed to change obj coef. Error code %d\n", status);
-	}
+    #ifdef CPLEX
+        int status = CPXchgobj (env, tempProb, objectiveColIndices[0], &indices[0], &objectiveCoefs[i][0]);
+	    if ( status ) {
+		    printf ("Failed to change obj coef. Error code %d\n", status);
+	    }
+	#else
+	    for(unsigned int j = 0; j < numCols; j++) glp_set_obj_coef(tempProb, j+1, objectiveCoefs[i][j]);
+	#endif
+	
 	return;
 }
 
@@ -817,56 +1009,99 @@ void MultiobjectiveProblem::ChangeTempObjCoefs(const vector<double> & v)
     
 /*    status = CPXwriteprob (env, tempProb, "prob_before.lp", "LP");*/
    
-    
-    status = CPXchgobj (env, tempProb, objectiveColIndices[0], &indices[0], &weightedCoefs[0]);
-	if ( status ) {
-		printf ("Failed to change obj coef. Error code %d\n", status);
-	}
+    #ifdef CPLEX
+        status = CPXchgobj (env, tempProb, objectiveColIndices[0], &indices[0], &weightedCoefs[0]);
+	    if ( status ) {
+		    printf ("Failed to change obj coef. Error code %d\n", status);
+	    }
+	#else
+	    for(int i = 0; i < objectiveColIndices[0] + 1; i++) glp_set_obj_coef(tempProb, indices[i] + 1, weightedCoefs[i]);
+	#endif
 	
 /*	status = CPXwriteprob (env, tempProb, "prob_after.lp", "LP");*/
 /*	 exit(0);*/
 	return;
 }
 
-vector<double> MultiobjectiveProblem::GetObjectiveValues(const CPXLPptr & lp)
-{
-    vector<double> retVec(numObjectives);
-    double *temp;
-    temp = new double[numObjectives];
-    double *x;
-    
-    int status = 0;
-    
-    if(StoreObjectivesInMainProb())
+#ifdef CPLEX
+    vector<double> MultiobjectiveProblem::GetObjectiveValues(const CPXLPptr & lp)
     {
-        status = CPXgetx (env, lp, temp, objectiveColIndices[0], objectiveColIndices[numObjectives-1]);
-        if ( status ) {
-		    printf ("Failed to get obj values. Error code %d\n", status);
-	    }
-    }
-    else
-    {
-        x = new double[numCols];
-        status = CPXgetx (env, lp, x, 0, numCols-1);
-        if ( status ) {
-		    printf ("Failed to get x. Error code %d\n", status);
-	    }
-	    for(int i = 0; i < numObjectives; i++)
-	    {
-	        temp[i] = 0.;
-	        for(int j = 0; j < numCols; j++)
+        vector<double> retVec(numObjectives);
+        double *temp;
+        temp = new double[numObjectives];
+        double *x;
+        
+        int status = 0;
+        
+        if(StoreObjectivesInMainProb())
+        {
+            status = CPXgetx (env, lp, temp, objectiveColIndices[0], objectiveColIndices[numObjectives-1]);
+            if ( status ) {
+	            printf ("Failed to get obj values. Error code %d\n", status);
+            }
+        }
+        else
+        {
+            x = new double[numCols];
+            status = CPXgetx (env, lp, x, 0, numCols-1);
+            if ( status ) {
+	            printf ("Failed to get x. Error code %d\n", status);
+            }
+	        
+	        for(int i = 0; i < numObjectives; i++)
 	        {
-	            temp[i] += x[j]*objectiveCoefs[i][j];
+	            temp[i] = 0.;
+	            for(int j = 0; j < numCols; j++)
+	            {
+	                temp[i] += x[j]*objectiveCoefs[i][j];
+	            }
 	        }
-	    }
-	    delete[] x;
+	        delete[] x;
+        }
+        
+        memcpy(&retVec[0], &temp[0], numObjectives*sizeof(double));
+        
+        delete[] temp;
+        return retVec;
     }
-    
-    memcpy(&retVec[0], &temp[0], numObjectives*sizeof(double));
-    
-    delete[] temp;
-    return retVec;
-}
+#else
+    vector<double> MultiobjectiveProblem::GetObjectiveValues(glp_prob *lp)
+    {
+        vector<double> retVec(numObjectives);
+        double *temp;
+        temp = new double[numObjectives];
+        double *x;
+        
+        int status = 0;
+        
+        if(StoreObjectivesInMainProb())
+        {
+            if(interiorPoint) for(int i = 0; i < numObjectives; i++) temp[i] = glp_ipt_col_prim(lp, objectiveColIndices[0] + i + 1);
+            else for(int i = 0; i < numObjectives; i++) temp[i] = glp_get_col_prim(lp, objectiveColIndices[0] + i + 1);
+        }
+        else
+        {
+            x = new double[numCols];
+            if(interiorPoint) for(int i = 0; i < numCols; i++) x[i] = glp_ipt_col_prim(lp, i + 1);
+            else for(int i = 0; i < numCols; i++) x[i] = glp_get_col_prim(lp, i + 1);
+	        
+	        for(int i = 0; i < numObjectives; i++)
+	        {
+	            temp[i] = 0.;
+	            for(int j = 0; j < numCols; j++)
+	            {
+	                temp[i] += x[j]*objectiveCoefs[i][j];
+	            }
+	        }
+	        delete[] x;
+        }
+        
+        memcpy(&retVec[0], &temp[0], numObjectives*sizeof(double));
+        
+        delete[] temp;
+        return retVec;
+    }
+#endif
 
 bool MultiobjectiveProblem::NormalizeObjectiveMultipliers()
 {
@@ -881,14 +1116,24 @@ vector<double> MultiobjectiveProblem::LexicographicMinimization(int i)
     vector<double> v(numObjectives, 1.);
     char u = 'U';
     char sense = 'L';
+    double val = 0.;
     
     ChangeTempObjCoefs(i);
     
-    status = CPXlpopt (env, tempProb);
- 	if ( status ) {
-    		printf ("%s(%d): CPXlpopt, Failed to solve tempProb,  error code %d\n", __FILE__, __LINE__, status);
-    		exit(0);
-  	}
+    #ifdef CPLEX
+        status = CPXlpopt (env, tempProb);
+     	if ( status ) {
+        		printf ("%s(%d): CPXlpopt, Failed to solve tempProb,  error code %d\n", __FILE__, __LINE__, status);
+        		exit(0);
+      	}
+    #else  	
+       if(interiorPoint) status = glp_interior(tempProb, NULL);
+       else status = glp_simplex(tempProb, NULL);
+       if ( status ) {
+        		printf ("%s(%d): GLPK failed to solve tempProb,  error code %d\n", __FILE__, __LINE__, status);
+        		exit(1);
+      	}
+  	#endif
   	
   	point = GetObjectiveValues(tempProb);
   	
@@ -899,25 +1144,38 @@ vector<double> MultiobjectiveProblem::LexicographicMinimization(int i)
   	{
       	if(StoreObjectivesInMainProb())
       	{
-      	    status = CPXchgbds (env, tempProb, 1, &objectiveColIndices[i], &u, &point[i]);
+      	    #ifdef CPLEX
+      	        status = CPXchgbds (env, tempProb, 1, &objectiveColIndices[i], &u, &point[i]);
+      	    #else
+      	        val = glp_get_col_lb(tempProb, objectiveColIndices[i] + 1);
+      	        glp_set_col_bnds(tempProb, objectiveColIndices[i] + 1, GLP_DB, val, point[i]);
+      	    #endif
       	}
       	else
       	{
       	    vector<int> rowIndices(objectiveColIndices[0],numRows);
       	    
-          	status = CPXnewrows (env, tempProb, 1, &point[i], &sense, NULL, NULL) ; 
-            if ( status ) 
-          	{
-            		printf ("CPXgetobj, Failed to add additional constraints to the model, error code %d\n", status);
-            		exit(0);
-            }
-            
-            status = CPXchgcoeflist (env, tempProb, objectiveColIndices[0], &rowIndices[0], &indices[0], &objectiveCoefs[i][0]);
-         	if ( status ) 
-            {
-         		printf ("CPXgchgcoeflist, Failed to set coefficients for first new row, error code %d\n", status);
-         		exit(0);
-         	}
+      	    #ifdef CPLEX
+              	status = CPXnewrows (env, tempProb, 1, &point[i], &sense, NULL, NULL) ; 
+                if ( status ) 
+              	{
+                		printf ("CPXgetobj, Failed to add additional constraints to the model, error code %d\n", status);
+                		exit(0);
+                }
+                
+                status = CPXchgcoeflist (env, tempProb, objectiveColIndices[0], &rowIndices[0], &indices[0], &objectiveCoefs[i][0]);
+             	if ( status ) 
+                {
+             		printf ("CPXgchgcoeflist, Failed to set coefficients for first new row, error code %d\n", status);
+             		exit(0);
+             	}
+            #else
+                status = glp_add_rows(tempProb, 1);
+                glp_set_row_bnds(tempProb, status, GLP_UP, NULL, point[i]);
+                indices.insert(indices.begin(), 0);
+                glp_set_mat_row(tempProb, status, rowIndices.size(), &indices[0], &objectiveCoefs[i][0]);
+                indices.erase(indices.begin());
+         	#endif
         }
       	
       	for(int j = 0; j < numObjectives; j++)
@@ -926,38 +1184,58 @@ vector<double> MultiobjectiveProblem::LexicographicMinimization(int i)
             if(j != i)
             {
                 ChangeTempObjCoefs(j);
-                        
-                status = CPXlpopt (env, tempProb);
-             	if ( status ) {
-                		printf ("%s(%d): CPXlpopt, Failed to solve tempProb,  error code %d\n", __FILE__, __LINE__, status);
-                		exit(0);
-              	}
+                   
+                #ifdef CPLEX     
+                    status = CPXlpopt (env, tempProb);
+                 	if ( status ) {
+                    		printf ("%s(%d): CPXlpopt, Failed to solve tempProb,  error code %d\n", __FILE__, __LINE__, status);
+                    		exit(0);
+                  	}
+                #else
+                    if(interiorPoint) status = glp_interior(tempProb, NULL);
+                   else status = glp_simplex(tempProb, NULL);
+                   if ( status ) {
+                    		printf ("%s(%d): GLPK failed to solve tempProb,  error code %d\n", __FILE__, __LINE__, status);
+                    		exit(1);
+                  	}
+              	#endif
               	
               	point = GetObjectiveValues(tempProb);
               	
-/*              	for(int k = 0; k < numObjectives; k++) cout << point[k] << "\t" << endl;*/
-              	
               	if(StoreObjectivesInMainProb())
               	{
-              	    status = CPXchgbds (env, tempProb, 1, &objectiveColIndices[j], &u, &point[j]);
+              	    #ifdef CPLEX
+              	        status = CPXchgbds (env, tempProb, 1, &objectiveColIndices[j], &u, &point[j]);
+              	    #else
+              	        val = glp_get_col_lb(tempProb, objectiveColIndices[j] + 1);
+              	        glp_set_col_bnds(tempProb, objectiveColIndices[j] + 1, GLP_DB, val, point[j]);
+              	    #endif
               	}
               	else
               	{
               	    vector<int> rowIndices(objectiveColIndices[0],numRows+j+1);
               	    
-                  	status = CPXnewrows (env, tempProb, 1, &point[j], &sense, NULL, NULL) ; 
-                    if ( status ) 
-                  	{
-                    		printf ("CPXgetobj, Failed to add additional constraints to the model, error code %d\n", status);
-                    		exit(0);
-                    }
-                    
-                    status = CPXchgcoeflist (env, tempProb, objectiveColIndices[0], &rowIndices[0], &indices[0], &objectiveCoefs[j][0]);
-                 	if ( status ) 
-                    {
-                 		printf ("CPXgchgcoeflist, Failed to set coefficients for first new row, error code %d\n", status);
-                 		exit(0);
-                 	}
+              	    #ifdef CPLEX
+                      	status = CPXnewrows (env, tempProb, 1, &point[j], &sense, NULL, NULL) ; 
+                        if ( status ) 
+                      	{
+                        		printf ("CPXgetobj, Failed to add additional constraints to the model, error code %d\n", status);
+                        		exit(0);
+                        }
+                        
+                        status = CPXchgcoeflist (env, tempProb, objectiveColIndices[0], &rowIndices[0], &indices[0], &objectiveCoefs[j][0]);
+                     	if ( status ) 
+                        {
+                     		printf ("CPXgchgcoeflist, Failed to set coefficients for first new row, error code %d\n", status);
+                     		exit(0);
+                     	}
+                    #else
+                        status = glp_add_rows(tempProb, 1);
+                        glp_set_row_bnds(tempProb, status, GLP_UP, NULL, point[j]);
+                        indices.insert(indices.begin(), 0);
+                        glp_set_mat_row(tempProb, status, rowIndices.size(), &indices[0], &objectiveCoefs[j][0]);
+                        indices.erase(indices.begin());
+                 	#endif
                 }
             }
 
@@ -967,11 +1245,26 @@ vector<double> MultiobjectiveProblem::LexicographicMinimization(int i)
       	{
       	    vector<char> up(numObjectives, 'U');
       	    vector<double> bd(numObjectives, infinity);
-      	    status = CPXchgbds (env, tempProb, numObjectives, &objectiveColIndices[0], &up[0], &bd[0]);
+      	    
+      	    #ifdef CPLEX
+      	        status = CPXchgbds (env, tempProb, numObjectives, &objectiveColIndices[0], &up[0], &bd[0]);
+      	    #else
+      	        for(int j = 0; j < numObjectives; j++)
+      	        {
+          	        val = glp_get_col_lb(tempProb, objectiveColIndices[j] + 1);
+                  	glp_set_col_bnds(tempProb, objectiveColIndices[j] + 1, GLP_LO, val, NULL);
+              	}
+      	    #endif
       	}
       	else
       	{
-      	    status = CPXdelrows (env, tempProb, numRows, numRows+numObjectives);
+      	    #ifdef CPLEX
+      	        status = CPXdelrows (env, tempProb, numRows, numRows+numObjectives);
+      	    #else
+      	        vector<int> num(numObjectives+1, 0);
+      	        for(int j = 0; j < numObjectives; j++) num[j+1] = numRows + j + 1;
+      	        glp_del_cols(tempProb, numObjectives, &num[0]);
+      	    #endif
         }
     }
   	
@@ -1391,10 +1684,17 @@ void CheckIfAdjacentsAreShadowed( vector<Simplex> & simplexStack, vector<Simplex
     return;
 }
 
-CPXLPptr MultiobjectiveProblem::GetMainLP()
-{
-    return mainProb;
-}
+#ifdef CPLEX
+    CPXLPptr MultiobjectiveProblem::GetMainLP()
+    {
+        return mainProb;
+    }
+#else
+    glp_prob *MultiobjectiveProblem::GetMainLP()
+    {
+        return mainProb;
+    }
+#endif
 
 void scanForRepeats(const vector<Simplex> & simplexStack)
 {
@@ -1510,48 +1810,69 @@ void WritePoints(const vector<Simplex> & simplexStack)
     cout << "***********************************\nTotal number of extreme points: " << v.size() << endl;
 }
 
-vector<string> GetVarNames(const CPXENVptr & env, const CPXLPptr & lp, int numCols)
-{
-    vector<string> retVec;
-    int           status = 0;
-    char          **cur_colname = NULL;
-    char          *cur_colnamestore = NULL;
-    int           cur_colnamespace;
-    int           surplus;
-    
-    status = CPXgetcolname (env, lp, NULL, NULL, 0, &surplus, 0, numCols-1);
+#ifdef CPLEX
+    vector<string> GetVarNames(const CPXENVptr & env, const CPXLPptr & lp, int numCols)
+    {
+        vector<string> retVec;
+        int           status = 0;
+        char          **cur_colname = NULL;
+        char          *cur_colnamestore = NULL;
+        int           cur_colnamespace;
+        int           surplus;
+        
+        status = CPXgetcolname (env, lp, NULL, NULL, 0, &surplus, 0, numCols-1);
 
-    if (( status != CPXERR_NEGATIVE_SURPLUS ) && ( status != 0 ))  
-    {
-      printf ("Could not determine amount of space for column names.\n");
-      exit(0);
-    }
+        if (( status != CPXERR_NEGATIVE_SURPLUS ) && ( status != 0 ))  
+        {
+          printf ("Could not determine amount of space for column names.\n");
+          exit(0);
+        }
 
-    cur_colnamespace = - surplus;
-    cur_colname      = (char **) malloc (sizeof(char *)*numCols);
-    cur_colnamestore = (char *)  malloc (cur_colnamespace);
-    if ( cur_colname == NULL || cur_colnamestore == NULL ) 
-    {
-       printf ("Failed to get memory for column names.\n");
-       exit(0);
+        cur_colnamespace = - surplus;
+        cur_colname      = (char **) malloc (sizeof(char *)*numCols);
+        cur_colnamestore = (char *)  malloc (cur_colnamespace);
+        if ( cur_colname == NULL || cur_colnamestore == NULL ) 
+        {
+           printf ("Failed to get memory for column names.\n");
+           exit(0);
+        }
+        status = CPXgetcolname (env, lp, cur_colname, cur_colnamestore, cur_colnamespace, &surplus, 0, numCols-1);
+        if ( status ) 
+        {
+           printf ("CPXgetcolname failed.\n");
+           exit(0);
+        }
+        
+        for (int j = 0; j < numCols; j++) 
+        {
+          retVec.push_back(cur_colname[j]);
+        }
+        
+        free(cur_colname);
+        free(cur_colnamestore);
+        
+        return retVec;  
     }
-    status = CPXgetcolname (env, lp, cur_colname, cur_colnamestore, cur_colnamespace, &surplus, 0, numCols-1);
-    if ( status ) 
+#else
+    vector<string> GetVarNames(glp_prob *lp, int numCols)
     {
-       printf ("CPXgetcolname failed.\n");
-       exit(0);
+        vector<string> retVec;
+        const char     *colname = NULL;
+        
+        for(int i = 0; i < numCols; i++) 
+        {
+            colname = glp_get_col_name(lp, i+1);
+/*            cout << colname << endl;*/
+            if(colname) 
+            {
+                retVec.push_back(colname);
+/*                cout << retVec[i] << endl;*/
+            }
+        }
+        
+        return retVec;  
     }
-    
-    for (int j = 0; j < numCols; j++) 
-    {
-      retVec.push_back(cur_colname[j]);
-    }
-    
-    free(cur_colname);
-    free(cur_colnamestore);
-    
-    return retVec;  
-}
+#endif
 
 // bennett 7/18
 void MultiobjectiveProblem::Epsilon(double e) {

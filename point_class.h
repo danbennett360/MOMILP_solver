@@ -21,7 +21,7 @@ class Point
         vector<double> point;
         vector<int> nonzeroPrimalIndices;
         vector<double> nonzeroPrimalValues;
-	double pointCloseEpsilon;   // bennett for == operator
+	    double pointCloseEpsilon;   // bennett for == operator
 
   public:
     	Point(const vector<double> & p, double *vals, int valsSize,
@@ -29,8 +29,8 @@ class Point
     	void WritePointToFile(const string & filename, 
 	                 const vector<string> & varNames, bool append);
         bool operator == (const Point & other);
-	double Epsilon(void) const;
-	void Epsilon(double e);
+	    double Epsilon(void) const;
+	    void Epsilon(double e);
 };
 
 #endif

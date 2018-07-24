@@ -49,7 +49,13 @@ class Simplex
     	double planeVal;
     	bool isPositive = true;
         double epsilon = .00001;
-        double infinity = CPX_INFBOUND;
+        
+        #ifdef CPLEX
+    	    double infinity = CPX_INFBOUND;
+    	#else
+    	    double infinity = 100000000000000000000.;
+    	#endif
+    	
         int numDummies = 0;
         bool showNormalsInPlots = false;
         bool saveForSolution = false;

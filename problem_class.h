@@ -28,10 +28,17 @@ using namespace std;
 
 class MultiobjectiveProblem 
 {
-    	CPXENVptr  env;
-    	CPXLPptr mainProb;
-    	CPXLPptr tempProb;
-    	vector<CPXLPptr> lps;
+        #ifdef CPLEX
+        	CPXENVptr  env;
+        	CPXLPptr mainProb;
+        	CPXLPptr tempProb;
+        	vector<CPXLPptr> lps;
+        #else
+            glp_prob *mainProb;
+        	glp_prob *tempProb;
+            vector<glp_prob *> lps;
+    	#endif
+    	
     	vector< vector<double> > objectiveCoefs;
     	int numCols = 0;
     	int numRows = 0;
@@ -46,7 +53,12 @@ class MultiobjectiveProblem
     	void ChangeTempObjCoefs(const vector<double> & v);
     	double epsilon = .05;
 //    	double epsilon2 = .0000001;
-    	double infinity = CPX_INFBOUND;
+        
+        #ifdef CPLEX
+    	    double infinity = CPX_INFBOUND;
+    	#else
+    	    double infinity = 100000000000000000000.;
+    	#endif
 /************************************************/
 /*      Parameter values that are 
         user-modifyable                         */
@@ -59,29 +71,38 @@ class MultiobjectiveProblem
         int showProgressIterations = 500;
         int maxIterations = 100000;
         bool relativeDistance = false;
+        bool interiorPoint = false;
   public:
-    	void 	    SetEnv(CPXENVptr e);
-    	CPXENVptr	GetEnv();
-	void 	    SetNumObj(int a);
-	void 	    AddLP(CPXLPptr lp);
-	int 		GetNumObj();
-	CPXLPptr 	GetLP(int i);
-	CPXLPptr 	GetMainLP();
-	void 	    ConvertLPs();
-	void 	    SetNumRowsAndCols();
-	void        AddRowsForObjectives();
-	void        SetParamVals(int argc, char **argv);
-	bool        StoreObjectivesInMainProb();
-	bool        NormalizeObjectiveMultipliers();
-	bool        UseLexicographicOptimization();
-	vector<Simplex> DichotomicSearch();
-	vector<Simplex> DichotomicSearch(const vector<int> & indices, const vector<int> & vals);
-	vector<double> GetObjectiveValues(const CPXLPptr & lp);
-	vector<double> LexicographicMinimization(int i);
+        #ifdef CPLEX
+        	void 	    SetEnv(CPXENVptr e);
+        	CPXENVptr	GetEnv();
+        	void 	    AddLP(CPXLPptr lp);
+        	CPXLPptr 	GetLP(int i);
+	        CPXLPptr 	GetMainLP();
+	        vector<double> GetObjectiveValues(const CPXLPptr & lp);
+	    #else
+	        void 	    AddLP(glp_prob *lp);
+	        glp_prob    *GetLP(int i);
+	        glp_prob    *GetMainLP();
+	        vector<double> GetObjectiveValues(glp_prob *lp);
+	    #endif
+	    
+	    void 	    SetNumObj(int a);
+	    int 		GetNumObj();
+	    void 	    ConvertLPs();
+	    void 	    SetNumRowsAndCols();
+	    void        AddRowsForObjectives();
+	    void        SetParamVals(int argc, char **argv);
+	    bool        StoreObjectivesInMainProb();
+	    bool        NormalizeObjectiveMultipliers();
+	    bool        UseLexicographicOptimization();
+	    vector<Simplex> DichotomicSearch();
+	    vector<Simplex> DichotomicSearch(const vector<int> & indices, const vector<int> & vals);
+	    vector<double> LexicographicMinimization(int i);
 
-	// bennett 7/18
-	void 	Epsilon(double e);
-	double	Epsilon(void) const;
+	    // bennett 7/18
+	    void 	Epsilon(double e);
+	    double	Epsilon(void) const;
 };
 
 void AddNewSimplices(   vector<Simplex> & simplexStack, const Simplex & currentSimplex, const vector<double> & point, bool normalize, bool useAdjacent, 
@@ -107,7 +128,11 @@ bool PointIsInFrontOfAnAdjacent(const vector<Simplex> & simplexStack, const Simp
 
 void WritePoints(const vector<Simplex> & simplexStack); 
 
-vector<string> GetVarNames(const CPXENVptr & env, const CPXLPptr & lp, int numCols);
+#ifdef CPLEX
+    vector<string> GetVarNames(const CPXENVptr & env, const CPXLPptr & lp, int numCols);
+#else
+    vector<string> GetVarNames(glp_prob *lp, int numCols);
+#endif
 
 void deleteRepeats(vector<Simplex> & simplexStack, int startingScanIndex);
 
