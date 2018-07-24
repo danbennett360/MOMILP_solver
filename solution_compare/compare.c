@@ -335,9 +335,13 @@ double FindDistance(vector<Point> a, vector<Point> b) {
     // store this in diff
     vector<Point> diff;
     set_difference(a.begin(),a.end(), b.begin(), b.end(), inserter(diff, diff.begin()));
+    if (diff.size() == 0) {
+       cout << "\tThe points are the same (or a subset)" << endl;
+       return 0;
+    }
     
     lp = CPXcreateprob (env,&status,"lp1.lp");
-  	if(lp == NULL) {
+    if(lp == NULL) {
      	    printf("CPXcreateprob, Failed to create LP%d, error code %d\n", 1, status);
       	    exit(1);
     }
