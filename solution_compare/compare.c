@@ -443,7 +443,7 @@ double FindDistance(vector<Point> a, vector<Point> b) {
             if(status) cout << status << endl;
         }
         
-        status = CPXwriteprob (env, lp1, "lp1.lp", "LP");
+/*        status = CPXwriteprob (env, lp1, "lp1.lp", "LP");*/
 /*        exit(0);*/
         
         status = CPXlpopt (env, lp1);
