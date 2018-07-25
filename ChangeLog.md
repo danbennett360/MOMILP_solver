@@ -22,3 +22,5 @@
  * Added a new command line flag "-interior" (T or F) which utilizes the interior point solver in glpk. Does nothing if using CLPEX.
  * There is still a bug in GLPK optimization -- it is not producing correct solutions. I will fix later.
  
+ ## July 25, 2018
+ * Fixed GLPK bugs. After doing some testing, the GLPK interior point method is very slow -- probably best not to use it.

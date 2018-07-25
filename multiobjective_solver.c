@@ -270,7 +270,11 @@ int main(int argc, char **argv)
  
     if(DEBUG)
 	{
-		phrase = "myprob0.lp";
+	    #ifdef CPLEX
+	        phrase = "myprob0_cplex.lp";
+	    #else
+		    phrase = "myprob0_glpk.lp";
+		#endif
 		for(int i = 0; i < myProb.GetNumObj(); i++) 
 		{
 			phrase[6]++;
@@ -278,7 +282,7 @@ int main(int argc, char **argv)
 			    status = CPXwriteprob (env, myProb.GetLP(i), phrase.c_str(), "LP");
 			#else 
 			    status = glp_write_lp(myProb.GetLP(i), NULL, phrase.c_str());
-			    cout << status << endl;
+/*			    cout << status << endl;*/
 			#endif
 		}
 	}
@@ -311,7 +315,9 @@ int main(int argc, char **argv)
     if(DEBUG) 
     {
         #ifdef CPLEX
-            status = CPXwriteprob (env, myProb.GetMainLP(), "overall_prob.lp", "LP");
+            status = CPXwriteprob (env, myProb.GetMainLP(), "overall_prob_cplex.lp", "LP");
+        #else
+            status = glp_write_lp(myProb.GetMainLP(), NULL, "overall_prob_glpk.lp");
         #endif
     }
   	

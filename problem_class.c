@@ -163,7 +163,7 @@ void MultiobjectiveProblem::ConvertLPs()
 /*            cout << glp_version() << endl;*/
 /*            exit(0);*/
 /*            cout << "------------------------\n" << glp_get_num_cols(lps[i]) << glp_get_obj_coef(lps[i], 1) << endl;*/
-            for(int j = 0; j < numCols - 1; j++)
+            for(int j = 0; j < numCols; j++)
             {
                 objCoefs[j] = glp_get_obj_coef(lps[i], j+1);
             }
@@ -336,6 +336,9 @@ void MultiobjectiveProblem::AddRowsForObjectives()
      		        vallist[i+1] = 0;
      		    #endif
      		}
+/*     		#ifndef CPLEX*/
+/*     		    vallist[objectiveColIndices[j]+1] = objectiveCoefs[j][[objectiveColIndices[j]];*/
+/*     		    vallist[objectiveColIndices[j]+2] = -1;*/
      	}
      	
      	#ifdef CPLEX
@@ -823,26 +826,6 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
           	}
           	
           	point = GetObjectiveValues(tempProb);
-          	if(SAVE_POINTS) 
-            {
-                x = new double[numCols];
-                
-                #ifdef CPLEX
-                    status = CPXgetx (env, tempProb, x, 0, numCols-1);
-                    if ( status ) {
-                		printf ("%s(%d): CPXgetx, Failed to get x values,  error code %d\n", __FILE__, __LINE__, status);
-                		exit(0);
-              	    }
-              	#else
-              	    if(!interiorPoint) for(int j = 0; j < numCols; j++) x[j] = glp_get_col_prim(tempProb, j+1);
-          	        else for(int j = 0; j < numCols; j++) x[j] = glp_ipt_col_prim(tempProb, j+1);
-          	    #endif
-          	    
-/*                pointStack.push_back(Point(point, x, numCols));*/
-                if(storeObjectivesInMainProb) pointStack.push_back(Point(point, x, numCols-numObjectives));
-                else pointStack.push_back(Point(point, x, numCols));
-                delete[] x;
-            }
           	
           	if(DEBUG)
           	{
@@ -857,6 +840,27 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
           	if( (!relativeDistance && currentSimplex.MultiplyPointsByNormal(point) < currentSimplex.PlaneVal() - epsilon) ||
           	    (relativeDistance && (currentSimplex.MultiplyPointsByNormal(point) - currentSimplex.PlaneVal())/abs(currentSimplex.PlaneVal()) < - epsilon) )
           	{
+          	    if(SAVE_POINTS) 
+                {
+                    x = new double[numCols];
+                    
+                    #ifdef CPLEX
+                        status = CPXgetx (env, tempProb, x, 0, numCols-1);
+                        if ( status ) {
+                    		printf ("%s(%d): CPXgetx, Failed to get x values,  error code %d\n", __FILE__, __LINE__, status);
+                    		exit(0);
+                  	    }
+                  	#else
+                  	    if(!interiorPoint) for(int j = 0; j < numCols; j++) x[j] = glp_get_col_prim(tempProb, j+1);
+              	        else for(int j = 0; j < numCols; j++) x[j] = glp_ipt_col_prim(tempProb, j+1);
+              	    #endif
+              	    
+    /*                pointStack.push_back(Point(point, x, numCols));*/
+                    if(storeObjectivesInMainProb) pointStack.push_back(Point(point, x, numCols-numObjectives));
+                    else pointStack.push_back(Point(point, x, numCols));
+                    delete[] x;
+                }
+                
           	    if(DEBUG)
           	    {
     /*      	        cout << "Distance to simplex: " << currentSimplex.MultiplyPointsByNormal(point) - (currentSimplex.PlaneVal() - epsilon) << "\nIn Front of An Adjacent: " << PointIsInFrontOfAnAdjacent(simplexStack, currentSimplex, point, epsilon) << endl;*/
@@ -984,8 +988,18 @@ void MultiobjectiveProblem::ChangeTempObjCoefs(int i)
 		    printf ("Failed to change obj coef. Error code %d\n", status);
 	    }
 	#else
-	    for(unsigned int j = 0; j < numCols; j++) glp_set_obj_coef(tempProb, j+1, objectiveCoefs[i][j]);
+	    if(storeObjectivesInMainProb) for(unsigned int j = 0; j < numCols - numObjectives; j++) glp_set_obj_coef(tempProb, j+1, objectiveCoefs[i][j]);
+	    else for(unsigned int j = 0; j < numCols; j++) glp_set_obj_coef(tempProb, j+1, objectiveCoefs[i][j]);
 	#endif
+	
+/*	#ifdef CPLEX*/
+/*        status = CPXwriteprob (env, tempProb, "temp_prob_cplex.lp", "LP");*/
+/*    #else*/
+/*        int status = glp_write_lp(tempProb, NULL, "temp_prob_glpk.lp");*/
+/*    #endif*/
+/*    */
+/*    cout << i << endl;*/
+/*    exit(0);*/
 	
 	return;
 }
