@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,6 +20,7 @@
 using namespace std;
 
 const double EPSILON = 0.000001;
+bool TERSE = false;
 
 ostream & operator << (ostream & s, const vector<double> & pts) {
  for (auto x: pts) {
@@ -253,12 +253,18 @@ int ShowExtraDifference(vector<Point> a, vector<Point> b, char * fn1, char * fn2
 
    set_intersection(a.begin(), a.end(), b.begin(), b.end(),inserter(common, common.begin()));
 
-   cout <<"\tThere are " << common.size() << " common points between the two"
-       << endl << endl;
+   if (TERSE) {
+       cout << "," << common.size();
+   } else {
+       cout <<"\tThere are " << common.size() << " common points between the two"
+           << endl << endl;
+   }
    for(auto x: common) {
       first = find(a.begin(), a.end(), x); 
       second = find(b.begin(), b.end(), x); 
-      CompareExtras(x.point, first->extra, second->extra, fn1, fn2);
+      if (not TERSE) {
+          CompareExtras(x.point, first->extra, second->extra, fn1, fn2);
+      }
    }
 
    return 0;
@@ -270,7 +276,9 @@ bool Compare(vector<Point> set1, vector<Point> set2, char * fn1, char * fn2, boo
 
     int size1= 0, size2= 0;
 
-    cout << "Comparing two input files ..." << endl << endl;
+    if (not TERSE) {
+        cout << "Comparing two input files ..." << endl << endl;
+    }
 
     if (showDiff) {
         cout << endl;
@@ -280,11 +288,15 @@ bool Compare(vector<Point> set1, vector<Point> set2, char * fn1, char * fn2, boo
     size1 = ShowDifference(set1, set2, fn1, fn2, showDiff);
     size2 = ShowDifference(set2, set1, fn2, fn1, showDiff);
 
-    cout << endl;
-    cout << "\t" << fn1 << " contains " << set1.size() << " points." << endl;
-    cout << "\t" << fn2 << " contains " << set2.size() << " points." << endl;
-    cout << "\tThere are " << set1.size()-size1 << " common points." << endl;
-    cout << endl;
+    if (not TERSE) {
+        cout << endl;
+        cout << "\t" << fn1 << " contains " << set1.size() << " points." << endl;
+        cout << "\t" << fn2 << " contains " << set2.size() << " points." << endl;
+        cout << "\tThere are " << set1.size()-size1 << " common points." << endl;
+        cout << endl;
+    } else {
+       cout << set1.size() <<","<< set2.size() << "," << size1 << "," << size2 << ",";
+    }
    
     return (size1 == 0 and size2 == 0) ;
 }
@@ -335,8 +347,10 @@ double FindDistance(vector<Point> a, vector<Point> b) {
     // store this in diff
     vector<Point> diff;
     set_difference(a.begin(),a.end(), b.begin(), b.end(), inserter(diff, diff.begin()));
-    if (diff.size() == 0) {
-       cout << "\tThe points are the same (or a subset)" << endl;
+    if (diff.size() == 0 ) {
+       if (not TERSE) {
+           cout << "\tThe points are the same (or a subset)" << endl;
+       }
        return 0;
     }
     
@@ -442,10 +456,17 @@ int main(int argc, char **argv)
        } else if (strcmp(argv[i], "-noDiff") == 0) {
           showDiff = false;
 	  i++;
+       } else if (strcmp(argv[i], "-Terse") == 0) {
+          TERSE = true;
+	  i++;
        } else {
           cout << "Unknown Argument " << argv[i] << endl;
 	  i++;
        }
+    }
+
+    if (TERSE) {
+       showDiff = false;
     }
 
     double min;
@@ -464,26 +485,40 @@ int main(int argc, char **argv)
     }
 
     if (same and findDistances) {
-       cout << "The points are the same, not checking distance between surfaces " << endl;
+       if (not TERSE) {
+           cout << "The points are the same, not checking distance between surfaces " << endl;
+       } else {
+           cout << "0,0" << endl;
+	   return  0;
+       }
     }
 
     if (not same and findDistances) {
         CplexInit();
 	// nate, check this to see if I have the verbage right.
 	// I had changed everything before I realized what the output said.
+	if (not TERSE) {
         cout << "Determining distance from each point to " 
              << "the polyhedron specified by the extreme points in the other file"  << endl
 	     << " (extreme directions included)." << endl;;
-
+        }
         // Create Problem 1 
         min =  FindDistance(set1, set2);
-        cout << "\tFrom " << argv[1] << " to " << argv[2] << " : "
-             << abs(min) << endl;
+	if (not TERSE) {
+            cout << "\tFrom " << argv[1] << " to " << argv[2] << " : "
+                 << abs(min) << endl;
+	} else {
+	    cout << abs(min) << ",";
+	}
 
         //  Create Problem 2 *******************
         min = FindDistance(set2, set1);
-        cout << "\tFrom " << argv[2] << " to " << argv[1] << " : "
-             << abs(min) << endl;
+	if (not TERSE) {
+           cout << "\tFrom " << argv[2] << " to " << argv[1] << " : "
+                 << abs(min) << endl;
+        } else {
+	    cout << abs(min) << endl;
+	}
     }
 
     cout << endl;
