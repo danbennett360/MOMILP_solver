@@ -26,3 +26,6 @@ command:
 ## 7/25/18
 * Set difference was going backwards, I think.
 * Add extra rows to the problems being solved so that a negative multiple of the extreme directions can be used to create "affine" combination of new point. If a negative multiple is used, it shows the point sits outside the polyhedron.
+
+## 7/25/18 - Entry 2
+* Modified use of the negative multiple of the extreme directions to only be useable by passing the flag "-Ext". It is not helpful in most cases -- it should be used if an error "Unable to solve/get ..." is encountered.

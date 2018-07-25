@@ -335,7 +335,7 @@ void CplexInit(void) {
     /******************************************************************/
 }
 
-double FindDistance(vector<Point> a, vector<Point> b) {
+double FindDistance(vector<Point> a, vector<Point> b, bool useNegMultOfExtDir) {
     vector<double> lb;
     int ind = 0;
     int num = 0;
@@ -412,20 +412,23 @@ double FindDistance(vector<Point> a, vector<Point> b) {
     
     status = CPXaddcols (env, lp, dim, dim, NULL, &cmatbeg[0], &cmatbeg[0], &cmatval[0], &lb[0], NULL, NULL);
     
-    cmatbeg.resize(2*dim);
-    cmatind.resize(2*dim);
-    cmatval.resize(2*dim);
-    for(unsigned int i = 0; i < dim; i++) 
+    if(useNegMultOfExtDir)
     {
-        sense.push_back('L');
-        cmatbeg[i] = 2*i;
-        cmatind[2*i] = a.size();
-        cmatind[2*i+1] = a.size() + 1 + i;
-        cmatval[2*i] = 1.;
-        cmatval[2*i+1] = -1.;
+        cmatbeg.resize(2*dim);
+        cmatind.resize(2*dim);
+        cmatval.resize(2*dim);
+        for(unsigned int i = 0; i < dim; i++) 
+        {
+            sense.push_back('L');
+            cmatbeg[i] = 2*i;
+            cmatind[2*i] = a.size();
+            cmatind[2*i+1] = a.size() + 1 + i;
+            cmatval[2*i] = 1.;
+            cmatval[2*i+1] = -1.;
+        }
+        
+        status = CPXaddrows (env, lp, 0, dim, 2*dim, NULL, &sense[0], &cmatbeg[0], &cmatind[0], &cmatval[0], NULL, NULL);
     }
-    
-    status = CPXaddrows (env, lp, 0, dim, 2*dim, NULL, &sense[0], &cmatbeg[0], &cmatind[0], &cmatval[0], NULL, NULL);
     
 /*    status = CPXwriteprob (env, lp, "lp1.lp", "LP");*/
 /*        exit(0);*/
@@ -485,6 +488,7 @@ int main(int argc, char **argv)
     bool compOtherPoints = true;
     bool showDiff = true;
     bool same = false;
+    bool useNegMultOfExtremeDir = false;
     int i;
 
     if (argc < 3) {
@@ -505,6 +509,9 @@ int main(int argc, char **argv)
 	  i++;
        } else if (strcmp(argv[i], "-Terse") == 0) {
           TERSE = true;
+	  i++;
+       } else if (strcmp(argv[i], "-Ext") == 0) {
+          useNegMultOfExtremeDir = true;
 	  i++;
        } else {
           cout << "Unknown Argument " << argv[i] << endl;
@@ -550,7 +557,7 @@ int main(int argc, char **argv)
 	     << " (extreme directions included)." << endl;;
         }
         // Create Problem 1 
-        min =  FindDistance(set1, set2);
+        min =  FindDistance(set1, set2, useNegMultOfExtremeDir);
 	if (not TERSE) {
             cout << "\tFrom " << argv[1] << " to " << argv[2] << " : "
                  << abs(min) << endl;
@@ -559,7 +566,7 @@ int main(int argc, char **argv)
 	}
 
         //  Create Problem 2 *******************
-        min = FindDistance(set2, set1);
+        min = FindDistance(set2, set1, useNegMultOfExtremeDir);
 	if (not TERSE) {
            cout << "\tFrom " << argv[2] << " to " << argv[1] << " : "
                  << abs(min) << endl;
