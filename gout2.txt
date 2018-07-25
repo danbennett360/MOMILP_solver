@@ -1,0 +1,1 @@
+Finished adding initial simplices, entering body of the simplex generation process.

@@ -1,0 +1,138 @@
+Reading problem data from 'temp0.mop'...
+Problem: ../../Software_Engineering/Spring_2018/github_files/BOMILP_instances/7x3x3x2x2/testp1.lp
+Objective: OBJ
+6 rows, 10 columns, 45 non-zeros
+4 integer variables, 2 of which are binary
+67 records were read
+3 free rows were removed
+Reading problem data from 'temp1.mop'...
+Problem: ../../Software_Engineering/Spring_2018/github_files/BOMILP_instances/7x3x3x2x2/testp1.lp
+Objective: OBJ2
+6 rows, 10 columns, 45 non-zeros
+4 integer variables, 2 of which are binary
+67 records were read
+3 free rows were removed
+Reading problem data from 'temp2.mop'...
+Problem: ../../Software_Engineering/Spring_2018/github_files/BOMILP_instances/7x3x3x2x2/testp1.lp
+Objective: OBJ3
+6 rows, 10 columns, 45 non-zeros
+4 integer variables, 2 of which are binary
+67 records were read
+3 free rows were removed
+GLPK Simplex Optimizer, v4.57
+6 rows, 13 columns, 51 non-zeros
+      0: obj =   0.000000000e+00 inf =   3.014e+02 (3)
+      8: obj =   0.000000000e+00 inf =   0.000e+00 (0)
+*    13: obj =  -3.770382328e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+GLPK Simplex Optimizer, v4.57
+6 rows, 13 columns, 51 non-zeros
+*    17: obj =  -2.481520881e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+GLPK Simplex Optimizer, v4.57
+6 rows, 13 columns, 51 non-zeros
+*    20: obj =  -1.194562500e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+Finished adding initial simplices, entering body of the simplex generation process.
+GLPK Simplex Optimizer, v4.57
+6 rows, 13 columns, 51 non-zeros
+*    20: obj =  -1.194562500e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+GLPK Simplex Optimizer, v4.57
+6 rows, 13 columns, 51 non-zeros
+*    21: obj =  -1.167601577e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+GLPK Simplex Optimizer, v4.57
+6 rows, 13 columns, 51 non-zeros
+*    21: obj =  -3.100190453e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+GLPK Simplex Optimizer, v4.57
+6 rows, 13 columns, 51 non-zeros
+*    22: obj =  -2.349899225e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+GLPK Simplex Optimizer, v4.57
+6 rows, 13 columns, 51 non-zeros
+*    22: obj =  -2.288182796e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+GLPK Simplex Optimizer, v4.57
+6 rows, 13 columns, 51 non-zeros
+*    22: obj =  -2.323966911e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+GLPK Simplex Optimizer, v4.57
+6 rows, 13 columns, 51 non-zeros
+*    22: obj =  -1.533577699e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+GLPK Simplex Optimizer, v4.57
+6 rows, 13 columns, 51 non-zeros
+*    24: obj =  -1.340931898e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+GLPK Simplex Optimizer, v4.57
+6 rows, 13 columns, 51 non-zeros
+*    24: obj =  -1.361449733e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+GLPK Simplex Optimizer, v4.57
+6 rows, 13 columns, 51 non-zeros
+*    24: obj =  -1.188483527e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+GLPK Simplex Optimizer, v4.57
+6 rows, 13 columns, 51 non-zeros
+*    24: obj =  -1.533577699e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+GLPK Simplex Optimizer, v4.57
+6 rows, 13 columns, 51 non-zeros
+*    26: obj =  -1.087643707e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+GLPK Simplex Optimizer, v4.57
+6 rows, 13 columns, 51 non-zeros
+*    26: obj =  -1.789072041e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+GLPK Simplex Optimizer, v4.57
+6 rows, 13 columns, 51 non-zeros
+*    26: obj =  -1.302838421e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+GLPK Simplex Optimizer, v4.57
+6 rows, 13 columns, 51 non-zeros
+*    26: obj =  -1.631729441e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+GLPK Simplex Optimizer, v4.57
+6 rows, 13 columns, 51 non-zeros
+*    26: obj =  -1.156239333e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+GLPK Simplex Optimizer, v4.57
+6 rows, 13 columns, 51 non-zeros
+*    26: obj =  -1.078744631e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+GLPK Simplex Optimizer, v4.57
+6 rows, 13 columns, 51 non-zeros
+*    29: obj =  -2.481520881e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+**************************
+Simplices after dichotomic search (which took 19 iterations): 
+patch([-377.038 -377.038 -377.038 ], [1e+20 -248.152 100.604 ], [-119.456 1e+20 -113.376 ], [0.840188 0.394383 0.783099 ]);
+patch([1e+20 -377.038 -327.181 ], [-248.152 1e+20 121.842 ], [-119.456 -119.456 -119.456 ], [0.79844 0.911647 0.197551 ]);
+patch([-377.038 -377.038 -306.111 ], [-248.152 100.604 -70.9998 ], [1e+20 -113.376 -101.125 ], [0.335223 0.76823 0.277775 ]);
+patch([-377.038 58.089 -103.433 ], [-248.152 -248.152 -211.003 ], [1e+20 21.6843 8.74955 ], [0.55397 0.477397 0.628871 ]);
+patch([-377.038 -306.111 -103.433 ], [-248.152 -70.9998 -211.003 ], [1e+20 -101.125 8.74955 ], [0.364784 0.513401 0.95223 ]);
+patch([58.089 -306.111 -103.433 ], [-248.152 -70.9998 -211.003 ], [21.6843 -101.125 8.74955 ], [0.916195 0.635712 0.717297 ]);
+patch([1e+20 58.089 -144.589 ], [-248.152 -248.152 -108.148 ], [-119.456 21.6843 -88.1905 ], [0.141603 0.606969 0.0163006 ]);
+patch([1e+20 -306.111 -144.589 ], [-248.152 -70.9998 -108.148 ], [-119.456 -101.125 -88.1905 ], [0.242887 0.137232 0.804177 ]);
+patch([58.089 -306.111 -144.589 ], [-248.152 -70.9998 -108.148 ], [21.6843 -101.125 -88.1905 ], [0.156679 0.400944 0.12979 ]);
+patch([-377.038 -377.038 -347.23 ], [1e+20 100.604 100.294 ], [-119.456 -113.376 -118.788 ], [0.108809 0.998925 0.218257 ]);
+patch([-377.038 -327.181 -347.23 ], [1e+20 121.842 100.294 ], [-119.456 -119.456 -118.788 ], [0.512932 0.839112 0.61264 ]);
+patch([-377.038 -306.111 -347.23 ], [100.604 -70.9998 100.294 ], [-113.376 -101.125 -118.788 ], [0.296032 0.637552 0.524287 ]);
+patch([1e+20 -327.181 -347.23 ], [-248.152 121.842 100.294 ], [-119.456 -119.456 -118.788 ], [0.493583 0.972775 0.292517 ]);
+patch([1e+20 -306.111 -347.23 ], [-248.152 -70.9998 100.294 ], [-119.456 -101.125 -118.788 ], [0.771358 0.526745 0.769914 ]);
+patch([1e+20 -377.038 58.089 ], [-248.152 -248.152 -248.152 ], [-119.456 1e+20 21.6843 ], [0.400229 0.891529 0.283315 ]);
+**************************
+Total number in list is: 15
+*************************************
+The individual extreme points discovered are:
+[ -377.038 100.604 -113.376 ]
+[ -347.23 100.294 -118.788 ]
+[ -327.181 121.842 -119.456 ]
+[ -306.111 -70.9998 -101.125 ]
+[ -144.589 -108.148 -88.1905 ]
+[ -103.433 -211.003 8.74955 ]
+[ 58.089 -248.152 21.6843 ]
+***********************************
+Total number of extreme points: 7
