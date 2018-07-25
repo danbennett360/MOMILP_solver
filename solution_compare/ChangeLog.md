@@ -22,3 +22,7 @@ command:
 ** Added checking of whatever you call the other variables generated
 ** reorganized the code to allow calling of only some tests.
 ** added command line flags
+
+## 7/25/18
+* Set difference was going backwards, I think.
+* Add extra rows to the problems being solved so that a negative multiple of the extreme directions can be used to create "affine" combination of new point. If a negative multiple is used, it shows the point sits outside the polyhedron.

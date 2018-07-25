@@ -326,6 +326,11 @@ void CplexInit(void) {
  	printf ("Failed to set solution pool gap to 0, error %d.\n",status);
 	exit(1);
     }
+    status = CPXsetintparam (env, CPX_PARAM_SCRIND, CPX_OFF);
+	if ( status ) {
+		printf ("Failed to turn screen printing on, error %d.\n",status);
+		exit(1);
+	}
   	
     /******************************************************************/
 }
@@ -339,6 +344,7 @@ double FindDistance(vector<Point> a, vector<Point> b) {
     vector<int> cmatbeg;
     vector<int> cmatind;
     vector<double> cmatval;
+    vector<char> sense;
 
     size_t points = a.size();
     size_t dim = a[0].point.size();
@@ -346,13 +352,22 @@ double FindDistance(vector<Point> a, vector<Point> b) {
     // need to find the diff between points in a and points in b.
     // store this in diff
     vector<Point> diff;
-    set_difference(a.begin(),a.end(), b.begin(), b.end(), inserter(diff, diff.begin()));
+    set_difference(b.begin(),b.end(), a.begin(), a.end(), inserter(diff, diff.begin()));
     if (diff.size() == 0 ) {
        if (not TERSE) {
            cout << "\tThe points are the same (or a subset)" << endl;
        }
        return 0;
     }
+    
+/*    for(unsigned int i = 0; i < diff.size(); i++)*/
+/*    {*/
+/*        for(unsigned int j = 0; j < diff[i].point.size(); j++)*/
+/*        {*/
+/*            cout << diff[i].point[j] << "\t";*/
+/*        }*/
+/*        cout << endl;*/
+/*    } */
     
     lp = CPXcreateprob (env,&status,"lp1.lp");
     if(lp == NULL) {
@@ -395,7 +410,25 @@ double FindDistance(vector<Point> a, vector<Point> b) {
     status = CPXaddcols (env, lp, 1, points, &va, &cmatbeg[0], &cmatind[0], &cmatval[0], &lb[0], NULL, NULL);
     CPXchgobjsen (env, lp, CPX_MAX);
     
-    status = CPXaddcols (env, lp, dim, dim, NULL, &cmatbeg[0], &cmatbeg[0], &cmatval[0], NULL, NULL, NULL);
+    status = CPXaddcols (env, lp, dim, dim, NULL, &cmatbeg[0], &cmatbeg[0], &cmatval[0], &lb[0], NULL, NULL);
+    
+    cmatbeg.resize(2*dim);
+    cmatind.resize(2*dim);
+    cmatval.resize(2*dim);
+    for(unsigned int i = 0; i < dim; i++) 
+    {
+        sense.push_back('L');
+        cmatbeg[i] = 2*i;
+        cmatind[2*i] = a.size();
+        cmatind[2*i+1] = a.size() + 1 + i;
+        cmatval[2*i] = 1.;
+        cmatval[2*i+1] = -1.;
+    }
+    
+    status = CPXaddrows (env, lp, 0, dim, 2*dim, NULL, &sense[0], &cmatbeg[0], &cmatind[0], &cmatval[0], NULL, NULL);
+    
+/*    status = CPXwriteprob (env, lp, "lp1.lp", "LP");*/
+/*        exit(0);*/
  
     // Solve problem 1 for each point in list 2 which is not in list 1 *******
     
@@ -403,19 +436,33 @@ double FindDistance(vector<Point> a, vector<Point> b) {
     for(unsigned int i = 0; i < diff.size(); i++)
     {
         lp1 = CPXcloneprob (env, lp, &status);
-        //  cout << "i: " << i << endl;
+/*        cout << "i: " << i << endl;*/
         for(unsigned int j = 0; j < dim; j++)
         {
             status = CPXchgrhs (env, lp1, dim, &cmatbeg[0], &diff[i].point[0]);
             if(status) cout << status << endl;
         }
         
+        status = CPXwriteprob (env, lp1, "lp1.lp", "LP");
+/*        exit(0);*/
+        
         status = CPXlpopt (env, lp1);
-        if(status) cout << status << endl;
+        if(status) 
+        {
+            cout << "Unable to solve problem. CPLEX error code: " << status << ". Exiting." << endl;
+            exit(1);
+        }
         status = CPXgetobjval (env, lp1, &va);
-        if(status) cout << status << endl;
-        if(va < min) min = va;
-        if(va > max) max = va;
+        if(status) 
+        {
+            cout << "Unable to get objective value. CPLEX error code: " << status << ". Exiting." << endl;
+            exit(1);
+        }
+        if(!status)
+        {
+            if(va < min) min = va;
+            if(va > max) max = va;
+        }
 
 // nate had this commented out
 /*        if(va < 0) 
