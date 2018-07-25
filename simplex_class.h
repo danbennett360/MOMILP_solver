@@ -48,8 +48,14 @@ class Simplex
     	void GenerateNormal();
     	double planeVal;
     	bool isPositive = true;
-        double epsilon = .0000001;
-        double infinity = CPX_INFBOUND;
+        double epsilon = .00001;
+        
+        #ifdef CPLEX
+    	    double infinity = CPX_INFBOUND;
+    	#else
+    	    double infinity = 100000000000000000000.;
+    	#endif
+    	
         int numDummies = 0;
         bool showNormalsInPlots = false;
         bool saveForSolution = false;
@@ -57,9 +63,9 @@ class Simplex
     	Simplex(int i);
     	Simplex() : Simplex(2) {};
 
-	// bennett 7/18
-	double Epsilon(void) const;
-	void Epsilon(double e);
+	    // bennett 7/18
+	    double Epsilon(void) const;
+	    void Epsilon(double e);
 
     	void AddExtreme(const vector<double> & v, bool normalize);
     	void PrintData() const;
@@ -70,8 +76,8 @@ class Simplex
     	double PlaneVal();
     	vector< vector<double> > GetExtremePoints() const;
     	vector<double> GetExtremePoint(int i) const;
-    	void WriteOctaveCodeToPlotSimplex() const;
-    	bool IsPositive();
+    	void WriteOctaveCodeToPlotSimplex(bool a) const;
+    	bool IsPositive() const;
     	Simplex FindAdjacentContainingOriginalPoints(const vector<Simplex> & simplices, int & simplexIndex, int & newPointIndex, int ignoreIndex, bool isIn) const;
     	int GetDimension() const;
     	int GetNumDummyPoints();
@@ -79,6 +85,9 @@ class Simplex
     	int GetPointIndex(const vector<double> & point);
     	void SaveForSolution();
     	bool GetSaveForSolution() const;
+    	void PrintNormal();
+    	bool isInSubsetOfStack(const vector<Simplex> & simplexStack, int startingScanIndex);
+    	bool deleteRepeats(vector<Simplex> & simplexStack, int startingScanIndex);
 };
 
 double Determinant(const vector< vector<double> > & matrix);

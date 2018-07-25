@@ -28,10 +28,17 @@ using namespace std;
 
 class MultiobjectiveProblem 
 {
-    	CPXENVptr  env;
-    	CPXLPptr mainProb;
-    	CPXLPptr tempProb;
-    	vector<CPXLPptr> lps;
+        #ifdef CPLEX
+        	CPXENVptr  env;
+        	CPXLPptr mainProb;
+        	CPXLPptr tempProb;
+        	vector<CPXLPptr> lps;
+        #else
+            glp_prob *mainProb;
+        	glp_prob *tempProb;
+            vector<glp_prob *> lps;
+    	#endif
+    	
     	vector< vector<double> > objectiveCoefs;
     	int numCols = 0;
     	int numRows = 0;
@@ -46,7 +53,12 @@ class MultiobjectiveProblem
     	void ChangeTempObjCoefs(const vector<double> & v);
     	double epsilon = .05;
 //    	double epsilon2 = .0000001;
-    	double infinity = CPX_INFBOUND;
+        
+        #ifdef CPLEX
+    	    double infinity = CPX_INFBOUND;
+    	#else
+    	    double infinity = 100000000000000000000.;
+    	#endif
 /************************************************/
 /*      Parameter values that are 
         user-modifyable                         */
@@ -55,49 +67,75 @@ class MultiobjectiveProblem
         bool storeObjectivesInMainProb = true;
         bool normalizeObjectiveMultipliers = true;
         bool useLexicographicOptimization = false;
+        bool showProgress = false;
+        int showProgressIterations = 500;
+        int maxIterations = 100000;
+        bool relativeDistance = false;
+        bool interiorPoint = false;
   public:
-    	void 	    SetEnv(CPXENVptr e);
-    	CPXENVptr	GetEnv();
-	void 	    SetNumObj(int a);
-	void 	    AddLP(CPXLPptr lp);
-	int 		GetNumObj();
-	CPXLPptr 	GetLP(int i);
-	CPXLPptr 	GetMainLP();
-	void 	    ConvertLPs();
-	void 	    SetNumRowsAndCols();
-	void        AddRowsForObjectives();
-	void        SetParamVals(int argc, char **argv);
-	bool        StoreObjectivesInMainProb();
-	bool        NormalizeObjectiveMultipliers();
-	bool        UseLexicographicOptimization();
-	vector<Simplex> DichotomicSearch();
-	vector<Simplex> DichotomicSearch(const vector<int> & indices, const vector<int> & vals);
-	vector<double> GetObjectiveValues(const CPXLPptr & lp);
-	vector<double> LexicographicMinimization(int i);
+        #ifdef CPLEX
+        	void 	    SetEnv(CPXENVptr e);
+        	CPXENVptr	GetEnv();
+        	void 	    AddLP(CPXLPptr lp);
+        	CPXLPptr 	GetLP(int i);
+	        CPXLPptr 	GetMainLP();
+	        vector<double> GetObjectiveValues(const CPXLPptr & lp);
+	    #else
+	        void 	    AddLP(glp_prob *lp);
+	        glp_prob    *GetLP(int i);
+	        glp_prob    *GetMainLP();
+	        vector<double> GetObjectiveValues(glp_prob *lp);
+	    #endif
+	    
+	    void 	    SetNumObj(int a);
+	    int 		GetNumObj();
+	    void 	    ConvertLPs();
+	    void 	    SetNumRowsAndCols();
+	    void        AddRowsForObjectives();
+	    void        SetParamVals(int argc, char **argv);
+	    bool        StoreObjectivesInMainProb();
+	    bool        NormalizeObjectiveMultipliers();
+	    bool        UseLexicographicOptimization();
+	    vector<Simplex> DichotomicSearch();
+	    vector<Simplex> DichotomicSearch(const vector<int> & indices, const vector<int> & vals);
+	    vector<double> LexicographicMinimization(int i);
 
-	// bennett 7/18
-	void 	Epsilon(double e);
-	double	Epsilon(void) const;
+	    // bennett 7/18
+	    void 	Epsilon(double e);
+	    double	Epsilon(void) const;
 };
 
 void AddNewSimplices(   vector<Simplex> & simplexStack, const Simplex & currentSimplex, const vector<double> & point, bool normalize, bool useAdjacent, 
-                        double epsilon);
+                        bool relativeDistance, double epsilon);
                         
 double GetAngleBetween(const Simplex & s1, const Simplex & s2, bool normalize);
 
 double GetVectorMagnitude(const vector<double> & v);
 
-void SplitSimplexInTwoUsingPoint(const Simplex & s, const vector<double> & point, vector<Simplex> & simplexStack, int newPointIndex, bool normalize);
+bool SplitSimplexInTwoUsingPoint(const Simplex & s, const vector<double> & point, vector<Simplex> & simplexStack, int newPointIndex, bool normalize, int startingScanIndex);
 
 void CheckForSimplicesThatNeedReplaced( vector<Simplex> & simplexStack, int & simplexIndex, int & newPointIndex, const int & numObjectives, 
-                                        const vector<double> & newPoint, bool normalize, double epsilon);
+                                        const vector<double> & newPoint, bool normalize, bool relativeDistance, double epsilon);
+                                        
+void CheckIfAdjacentsAreShadowed( vector<Simplex> & simplexStack, vector<Simplex> & simplicesToSplit, const Simplex & currentSimplex, 
+                                  const vector<double> & newPoint, const int & numObjectives, bool relativeDistance, double epsilon);
                                         
 void scanForRepeats(const vector<Simplex> & simplexStack);
+
+void scanForNegativeNormal(const vector<Simplex> & simplexStack);
 
 bool PointIsInFrontOfAnAdjacent(const vector<Simplex> & simplexStack, const Simplex & simp, const vector<double> & point, const double & epsilon);
 
 void WritePoints(const vector<Simplex> & simplexStack); 
 
-vector<string> GetVarNames(const CPXENVptr & env, const CPXLPptr & lp, int numCols);
+#ifdef CPLEX
+    vector<string> GetVarNames(const CPXENVptr & env, const CPXLPptr & lp, int numCols);
+#else
+    vector<string> GetVarNames(glp_prob *lp, int numCols);
+#endif
+
+void deleteRepeats(vector<Simplex> & simplexStack, int startingScanIndex);
+
+void CheckForDomination(const vector< vector<double> > & points, const double & epsilon);
 
 #endif

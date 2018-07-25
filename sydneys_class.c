@@ -1,5 +1,10 @@
 
-#include "cplex.h"
+#ifdef CPLEX
+    #include "cplex.h"
+#else
+    #include <glpk.h>
+#endif
+
 #include "sydneys_class.h"
 #include "simplex_class.h"
 

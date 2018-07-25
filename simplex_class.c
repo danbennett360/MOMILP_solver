@@ -6,12 +6,18 @@ This work is a start toward the solution of multiobjective mixed-integer linear 
 Initially we will just build a data structure for storing the (minimally excessive) set 
 of nondominated solutions.*/
 
-#include "cplex.h"
+#ifdef CPLEX
+    #include "cplex.h"
+#else
+    #include <glpk.h>
+#endif
+
 #include "simplex_class.h"
 
 Simplex::Simplex(int i)
 {
     dimension = i;
+    epsilon = EPSILON;
 }
 
 void Simplex::AddExtreme(const vector<double> & v, bool normalize)
@@ -50,8 +56,8 @@ void Simplex::GenerateNormal()
     vector< vector<double> > vectorsInHyperplane;
     vector< vector<double> > submat;
     vector<double> temp;
-    bool allSameSign = true;
-    bool isZero = true;
+/*    bool allSameSign = true;*/
+/*    bool isZero = true;*/
     double val = 0.;
     
     for(int i = 0; i < dimension-1; i++)
@@ -88,17 +94,17 @@ void Simplex::GenerateNormal()
             val = -1.*Determinant(submat);
         }
 /*        cout << "Val: " << val << "\tNormal Size: " << normal.size() << "\tisZero: " << isZero << "\tisPositive: " << isPositive << "\tallSameSign: " << allSameSign << endl;*/
-        if(normal.size() > 0 && !isZero && ((val < 0 && isPositive) || (val > 0 && !isPositive))) allSameSign = false;
-        if(val < -epsilon) isPositive = false;
-        if(abs(val) > epsilon) isZero = false;
+/*        if(normal.size() > 0 && !isZero && ((val < -epsilon && isPositive) || (val > epsilon && !isPositive))) allSameSign = false;*/
+/*        if(val < -epsilon) isPositive = false;*/
+/*        if(abs(val) > epsilon) isZero = false;*/
         normal.push_back(val); 
     }
     
-    if(allSameSign && !isPositive)
-    {
-        for(int i = 0; i < dimension; i++) normal[i] = -1.*normal[i];
-        isPositive = true;
-    }
+/*    if(allSameSign && !isPositive)*/
+/*    {*/
+/*        for(int i = 0; i < dimension; i++) normal[i] = -1.*normal[i];*/
+/*        isPositive = true;*/
+/*    }*/
 /*    else if(!allSameSign) cout << "There is an error! A normal vector did not have all positive weights!" << endl;*/
 
     if(DEBUG) 
@@ -176,6 +182,8 @@ void Simplex::PrintData() const
 void Simplex::NormalizeNormal()
 {
     double magnitude = 0.;
+    int sign = 0;
+    bool allSameSign = true;
     
     for(int i = 0; i < dimension; i++)
     {
@@ -190,6 +198,21 @@ void Simplex::NormalizeNormal()
         {
             cout << "Error. There is a normal component that doesn't make sense. Exiting!\n";
             exit(0);
+        }
+        if(!sign)
+        {
+            if(normal[i] > epsilon) sign = 1;
+            else if(normal[i] < -epsilon) sign = -1;
+        }
+        else if((sign > 0 && normal[i] < -epsilon) || (sign < 0 && normal[i] > epsilon)) allSameSign = false;
+    }
+    
+    if(!allSameSign) isPositive = false;
+    else if(sign < 0)
+    {
+        for(int i = 0; i < dimension; i++)
+        {
+            normal[i] = -normal[i];
         }
     }
     
@@ -235,7 +258,7 @@ vector<double> Simplex::GetExtremePoint(int i) const
     return extremePoints[i];
 }
 
-void Simplex::WriteOctaveCodeToPlotSimplex() const
+void Simplex::WriteOctaveCodeToPlotSimplex(bool a) const
 {
     vector<double> midpoint(dimension, 0.);
     vector<double> norm = GetNormal(); 
@@ -248,7 +271,11 @@ void Simplex::WriteOctaveCodeToPlotSimplex() const
         }
         cout << "], [";
     }
-    for(int i = 0; i < 3; i++) cout << ((double) rand() / (RAND_MAX)) << " ";
+    for(int i = 0; i < 3; i++) 
+    {
+        if(a) cout << ((double) rand() / (RAND_MAX)) << " ";
+        else cout << "0 ";
+    }
     
     cout << "]);" <<  endl;
     
@@ -273,10 +300,20 @@ void Simplex::WriteOctaveCodeToPlotSimplex() const
         cout << ")" << endl;
     }
     
+    if(DEBUG)
+    {
+        cout << "\%";
+        for(int i = 0; i < dimension; i++) 
+        {
+            cout << norm[i] << "\t";
+        }
+        cout << endl;
+    }
+    
     return;
 }
 
-bool Simplex::IsPositive()
+bool Simplex::IsPositive() const
 {
     return isPositive;
 }
@@ -344,7 +381,7 @@ Simplex Simplex::FindAdjacentContainingOriginalPoints(const vector<Simplex> & si
                         tempBool = (GetExtremePoint(l) == temp.GetExtremePoint(m));
                         couldBeIt = max(couldBeIt, tempBool);
                         if(tempBool && !matches[m]) matches[m] = true;
-                        if(DEBUG) cout << "tempBool: " << tempBool << "\tl:" << l << "\tm:" << m << "\tmatches[m]: " << matches[m] << endl; 
+/*                        if(DEBUG) cout << "tempBool: " << tempBool << "\tl:" << l << "\tm:" << m << "\tmatches[m]: " << matches[m] << endl; */
                         m++;
                     }
                     l++;
@@ -449,3 +486,73 @@ double Simplex::Epsilon(void) const{
     return epsilon;
 }
 
+void Simplex::PrintNormal()
+{
+    for(unsigned int i = 0; i < normal.size(); i++) cout << normal[i] << "\t";
+/*    cout << endl;*/
+    return;
+}
+
+bool Simplex::isInSubsetOfStack(const vector<Simplex> & simplexStack, int startingScanIndex)
+{
+    vector< vector<double> > v;
+    int count = 0;
+    bool retBool = false;
+    
+    for(unsigned int i = startingScanIndex; i < simplexStack.size(); i++)
+    {
+        v.resize(0);
+        for(int k = 0; k < simplexStack[0].GetDimension(); k++)
+        {
+            v.push_back(extremePoints[k]);
+        }
+    
+        for(int j = 0; j < simplexStack[0].GetDimension(); j++)
+        {
+            v.push_back(simplexStack[i].GetExtremePoint(j));
+        }
+        sort(v.begin(), v.end());
+        count = unique(v.begin(), v.end()) - v.begin();
+        if(count <= simplexStack[0].GetDimension())
+        {
+            cout << "The new simplex is already here! Don't add it!\n";
+            retBool = true;
+            break;
+        }
+    }
+    
+    return retBool;
+}
+
+bool Simplex::deleteRepeats(vector<Simplex> & simplexStack, int startingScanIndex)
+{
+    vector< vector<double> > v;
+    int count = 0;
+    bool retBool = false;
+    unsigned int i = startingScanIndex;
+    
+    while(i < simplexStack.size())
+    {
+        v.resize(0);
+        for(int k = 0; k < simplexStack[0].GetDimension(); k++)
+        {
+            v.push_back(extremePoints[k]);
+        }
+    
+        for(int j = 0; j < simplexStack[0].GetDimension(); j++)
+        {
+            v.push_back(simplexStack[i].GetExtremePoint(j));
+        }
+        sort(v.begin(), v.end());
+        count = unique(v.begin(), v.end()) - v.begin();
+        if(count <= simplexStack[0].GetDimension())
+        {
+            if(DEBUG) cout << "Deleting a repeated simplex.\n";
+            simplexStack.erase(simplexStack.begin() + i);
+            retBool = true;
+        }
+        else i++;
+    }
+    
+    return retBool;
+}
