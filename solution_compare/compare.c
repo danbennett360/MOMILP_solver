@@ -316,16 +316,6 @@ void CplexInit(void) {
   	
     /************* Set any desired CPLEX parameters here **************/
   	
-    status = CPXsetdblparam (env, CPXPARAM_MIP_Pool_AbsGap, 0.0);
-    if ( status ) {
-	printf ("Failed to set solution pool gap to 0, error %d.\n",status);
-	exit(1);
-    }
-    status = CPXsetdblparam (env, CPXPARAM_MIP_Pool_RelGap, 0.0);
-    if ( status ) {
- 	printf ("Failed to set solution pool gap to 0, error %d.\n",status);
-	exit(1);
-    }
     status = CPXsetintparam (env, CPX_PARAM_SCRIND, CPX_OFF);
 	if ( status ) {
 		printf ("Failed to turn screen printing on, error %d.\n",status);
@@ -335,13 +325,15 @@ void CplexInit(void) {
     /******************************************************************/
 }
 
-double FindDistance(vector<Point> a, vector<Point> b, bool useNegMultOfExtDir) {
+double FindDistance(vector<Point> a, vector<Point> b, bool relDist, double & minMagnitude) {
     vector<double> lb;
     int ind = 0;
     int num = 0;
     double va = 0., min = CPX_INFBOUND, max = -CPX_INFBOUND;
-    char l = 'L';
+/*    char l = 'L';*/
+/*    double d[1] = {0.};*/
     vector<int> cmatbeg;
+    vector<int> rmatbeg;
     vector<int> cmatind;
     vector<double> cmatval;
     vector<char> sense;
@@ -377,8 +369,8 @@ double FindDistance(vector<Point> a, vector<Point> b, bool useNegMultOfExtDir) {
     
     for(unsigned int i = 0; i < points; i++) lb.push_back(-CPX_INFBOUND);
     
-    status = CPXaddcols (env, lp, a.size(), 0, NULL, NULL, NULL, NULL, &lb[0], NULL, NULL);
-    status = CPXaddrows (env, lp, 0, dim + 1 + points, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+    status = CPXaddcols (env, lp, a.size(), 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+    status = CPXaddrows (env, lp, 0, dim + 1, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
     
     for(unsigned int i = 0; i < points; i++)
     {
@@ -392,14 +384,14 @@ double FindDistance(vector<Point> a, vector<Point> b, bool useNegMultOfExtDir) {
     va = 1.;
     status = CPXchgrhs (env, lp, 1, &ind, &va);
     
-    num = dim + 1;
-    for(unsigned int i = dim + 1; i < dim + 1 + points; i++)
-    {
-        ind = i;
-        status = CPXchgsense (env, lp, 1, &ind, &l);
-        status = CPXchgcoef (env, lp, i, i - num, -1.);
-        //  cout << i << "\t" << i - num << "\t" << status << endl;
-    }
+/*    num = dim + 1;*/
+/*    for(unsigned int i = dim + 1; i < dim + 1 + points; i++)*/
+/*    {*/
+/*        ind = i;*/
+/*        status = CPXchgsense (env, lp, 1, &ind, &l);*/
+/*        status = CPXchgcoef (env, lp, i, i - num, -1.);*/
+/*        //  cout << i << "\t" << i - num << "\t" << status << endl;*/
+/*    }*/
     
     for(unsigned int i = 0; i < points; i++)
     {
@@ -407,49 +399,62 @@ double FindDistance(vector<Point> a, vector<Point> b, bool useNegMultOfExtDir) {
         cmatind.push_back(i + dim + 1);
         cmatval.push_back(1.);
     }
-    status = CPXaddcols (env, lp, 1, points, &va, &cmatbeg[0], &cmatind[0], &cmatval[0], &lb[0], NULL, NULL);
-    CPXchgobjsen (env, lp, CPX_MAX);
+/*    status = CPXaddcols (env, lp, 1, points, &va, &cmatbeg[0], &cmatind[0], &cmatval[0], NULL, NULL, NULL);*/
+    CPXchgobjsen (env, lp, CPX_MIN);
+    
+    status = CPXaddcols (env, lp, dim, dim, NULL, &cmatbeg[0], &cmatbeg[0], &cmatval[0], NULL, NULL, NULL);
+    
+    for(unsigned int i = 0; i < cmatval.size(); i++) cmatval[i] = -1.;
     
     status = CPXaddcols (env, lp, dim, dim, NULL, &cmatbeg[0], &cmatbeg[0], &cmatval[0], &lb[0], NULL, NULL);
     
-    if(useNegMultOfExtDir)
-    {
-        cmatbeg.resize(2*dim);
-        cmatind.resize(2*dim);
-        cmatval.resize(2*dim);
-        for(unsigned int i = 0; i < dim; i++) 
-        {
-            sense.push_back('L');
-            cmatbeg[i] = 2*i;
-            cmatind[2*i] = a.size();
-            cmatind[2*i+1] = a.size() + 1 + i;
-            cmatval[2*i] = 1.;
-            cmatval[2*i+1] = -1.;
-        }
-        
-        status = CPXaddrows (env, lp, 0, dim, 2*dim, NULL, &sense[0], &cmatbeg[0], &cmatind[0], &cmatval[0], NULL, NULL);
-    }
+    status = CPXchgprobtype (env, lp, CPXPROB_QP);
     
-/*    status = CPXwriteprob (env, lp, "lp1.lp", "LP");*/
-/*        exit(0);*/
+    num = CPXgetnumcols (env, lp);
+    
+    for(unsigned int i = 0; i < dim; i++) status = CPXchgqpcoef (env, lp, num - i - 1, num - i - 1, 2.);
+    
  
     // Solve problem 1 for each point in list 2 which is not in list 1 *******
     
+    cmatind.resize(dim);
+    cmatval.resize(dim);
 
     for(unsigned int i = 0; i < diff.size(); i++)
     {
+        
+        if(relDist)
+        {
+            va = 0.;
+            for(unsigned int j = 0; j < diff[i].point.size(); j++) va += diff[i].point[j]*diff[i].point[j];
+            va = sqrt(va);
+            if(va < minMagnitude) minMagnitude = va;
+        }
+    
         lp1 = CPXcloneprob (env, lp, &status);
 /*        cout << "i: " << i << endl;*/
-        for(unsigned int j = 0; j < dim; j++)
+/*        for(unsigned int j = 0; j < dim; j++)*/
+/*        {*/
+/*            status = CPXchgrhs (env, lp1, dim, &cmatbeg[0], &diff[i].point[0]);*/
+/*            if(status) cout << status << endl;*/
+/*        }*/
+        
+/*        if(i == 0)*/
+/*        {*/
+/*            status = CPXwriteprob (env, lp1, "lp1.lp", "LP");*/
+/*            cout << status << endl;*/
+/*            exit(0);*/
+/*        }*/
+
+        for(unsigned int j = 0; j < dim; j++) 
         {
-            status = CPXchgrhs (env, lp1, dim, &cmatbeg[0], &diff[i].point[0]);
-            if(status) cout << status << endl;
+            cmatind[j] = num - dim + j;
+            cmatval[j] = -2*diff[i].point[j];
         }
+
+        status = CPXchgobj (env, lp1, dim, cmatind.data(), cmatval.data());
         
-/*        status = CPXwriteprob (env, lp1, "lp1.lp", "LP");*/
-/*        exit(0);*/
-        
-        status = CPXlpopt (env, lp1);
+        status = CPXqpopt (env, lp1);
         if(status) 
         {
             cout << "Unable to solve problem. CPLEX error code: " << status << ". Exiting." << endl;
@@ -461,11 +466,27 @@ double FindDistance(vector<Point> a, vector<Point> b, bool useNegMultOfExtDir) {
             cout << "Unable to get objective value. CPLEX error code: " << status << ". Exiting." << endl;
             exit(1);
         }
+        
+/*        for(unsigned int j = 0; j < num; j++) */
+/*        {*/
+/*            status = CPXgetx (env, lp1, d, j, j);*/
+/*            cout << "x" << j+1 << ": " << d[0] << endl;*/
+/*        }*/
+        
+        for(unsigned int j = 0; j < dim; j++) va += diff[i].point[j]*diff[i].point[j];
+        
+        va = sqrt(va);
+        
         if(!status)
         {
             if(va < min) min = va;
             if(va > max) max = va;
+/*            cout << va << endl;*/
+/*            cout << "min: " << min << "\tmax: " << max << endl;*/
         }
+        
+/*        status = CPXwriteprob (env, lp1, "lp1.lp", "LP");*/
+/*        exit(0);*/
 
 // nate had this commented out
 /*        if(va < 0) 
@@ -479,7 +500,7 @@ double FindDistance(vector<Point> a, vector<Point> b, bool useNegMultOfExtDir) {
         }
 */
     }
-    return min;
+    return max;
 }
 
 int main(int argc, char **argv)
@@ -488,8 +509,9 @@ int main(int argc, char **argv)
     bool compOtherPoints = true;
     bool showDiff = true;
     bool same = false;
-    bool useNegMultOfExtremeDir = false;
+    bool relDist = false;
     int i;
+    double minMagnitude = CPX_INFBOUND;
 
     if (argc < 3) {
         cout << argv[0] << " requires two file names" << endl;
@@ -510,8 +532,8 @@ int main(int argc, char **argv)
        } else if (strcmp(argv[i], "-Terse") == 0) {
           TERSE = true;
 	  i++;
-       } else if (strcmp(argv[i], "-Ext") == 0) {
-          useNegMultOfExtremeDir = true;
+       } else if (strcmp(argv[i], "-RelDist") == 0) {
+          relDist = true;
 	  i++;
        } else {
           cout << "Unknown Argument " << argv[i] << endl;
@@ -557,19 +579,21 @@ int main(int argc, char **argv)
 	     << " (extreme directions included)." << endl;;
         }
         // Create Problem 1 
-        min =  FindDistance(set1, set2, useNegMultOfExtremeDir);
+        min =  FindDistance(set1, set2, relDist, minMagnitude);
 	if (not TERSE) {
             cout << "\tFrom " << argv[1] << " to " << argv[2] << " : "
                  << abs(min) << endl;
+            if(relDist) cout << "\t\tAs a relative distance: " << abs(min)/minMagnitude << endl;
 	} else {
 	    cout << abs(min) << ",";
 	}
 
         //  Create Problem 2 *******************
-        min = FindDistance(set2, set1, useNegMultOfExtremeDir);
+        min = FindDistance(set2, set1, false, minMagnitude);
 	if (not TERSE) {
            cout << "\tFrom " << argv[2] << " to " << argv[1] << " : "
                  << abs(min) << endl;
+           if(relDist) cout << "\t\tAs a relative distance: " << abs(min)/minMagnitude << endl;
         } else {
 	    cout << abs(min) << endl;
 	}

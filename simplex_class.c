@@ -273,7 +273,8 @@ void Simplex::WriteOctaveCodeToPlotSimplex(bool a) const
     }
     for(int i = 0; i < 3; i++) 
     {
-        if(a) cout << ((double) rand() / (RAND_MAX)) << " ";
+/*        if(a) cout << ((double) rand() / (RAND_MAX)) << " ";*/
+        if(a) cout << ".75" << " ";
         else cout << "0 ";
     }
     

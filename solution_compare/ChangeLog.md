@@ -29,3 +29,8 @@ command:
 
 ## 7/25/18 - Entry 2
 * Modified use of the negative multiple of the extreme directions to only be useable by passing the flag "-Ext". It is not helpful in most cases -- it should be used if an error "Unable to solve/get ..." is encountered.
+
+## 7/26/18 
+* Completely reworked the optimization routine that generates the distance. I took advantage of CPLEX's ability to optimize over a quadratic objective, so the output of the problem is no longer the minimum multiplier in the convex combination, but a true distance. The output of the problem is now the minimum distance from a single point in the second set of points to the polytope formed from the first set of points. As a result, by taking the maximum of these minimum distances we produce the Hausdorff distance (https://en.wikipedia.org/wiki/Hausdorff_distance) from the polytope constructed from the first set of points to the second set of points (not its polytope, though). THIS is a valid metric and therefore acceptable to report. 
+* These changes nullified the "-Ext" flag. It is gone.
+* Added a "-RelDist" flag that, when called, computes the magnitude of the postition vector associated with each point in set 2 (i.e., the distance of the point from the origin), takes the minimum of these magnitudes, and reports the Hausdorff distance as a measure relative to this magnitude, i.e., RelDist = HausdorffDist/min(magnitudes).
