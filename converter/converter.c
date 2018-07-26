@@ -8,6 +8,9 @@
 #include <pthread.h>
 #include <vector>
 #include <string>
+#include <iostream>
+#include <fstream>
+#include <regex>
 
 #include "cplex.h"
 
@@ -28,6 +31,11 @@ int cur_numrows;
 
 int main(int argc, char **argv)
 {
+    ifstream fin;
+    ofstream fout;
+    string phrase = "";
+	string phrase2 = "";
+
 	/* initialize Cplex environment *********************************/
 
   	env = CPXopenCPLEX(&status);
@@ -275,7 +283,7 @@ int main(int argc, char **argv)
 	        }
     	}
     	
-    	status = CPXwriteprob (env, lp1, "multiobj_prob_MIP.mps", "MPS");
+    	status = CPXwriteprob (env, lp1, "temp2.mps", "MPS");
     	
     	status = CPXchgprobtype(env, lp1, CPXPROB_LP);
       	if ( status ) 
@@ -284,7 +292,47 @@ int main(int argc, char **argv)
         		exit(0);
       	}
       	
-      	status = CPXwriteprob (env, lp1, "multiobj_prob_LP.mps", "MPS");
+      	status = CPXwriteprob (env, lp1, "temp.mps", "MPS");
+      	
+      	fin.open("temp.mps");
+        fout.open("multiobj_prob_LP.mps");
+        while (getline(fin, phrase))
+        {
+            phrase2 = regex_replace(phrase, regex("^ +"), "");
+/*                    cout << phrase2 << endl;*/
+            if((phrase2[0] == 'G' || phrase2[0] == 'g') && (phrase2[1] == ' ' || phrase2[1] == '\t')) 
+            {
+                phrase2[0] = 'N';
+                fout << " " << phrase2 << endl;
+            }
+            else
+            {
+                fout << phrase << endl;
+            }
+        }
+        fin.close();
+        fout.close();
+        remove("temp.mps");
+        
+        fin.open("temp2.mps");
+        fout.open("multiobj_prob_MIP.mps");
+        while (getline(fin, phrase))
+        {
+            phrase2 = regex_replace(phrase, regex("^ +"), "");
+/*                    cout << phrase2 << endl;*/
+            if((phrase2[0] == 'G' || phrase2[0] == 'g') && (phrase2[1] == ' ' || phrase2[1] == '\t')) 
+            {
+                phrase2[0] = 'N';
+                fout << " " << phrase2 << endl;
+            }
+            else
+            {
+                fout << phrase << endl;
+            }
+        }
+        fin.close();
+        fout.close();
+        remove("temp2.mps");
     	
     	/*************************************************************************************/
     	/******************************* Set coefficients for second new row *****************/
