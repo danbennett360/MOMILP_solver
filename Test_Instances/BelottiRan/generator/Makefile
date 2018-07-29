@@ -2,7 +2,7 @@
 # Set these two directories
 #
 
-HOMEBIN=${HOME}/Dropbox\ \(Edinboro\ University\)/Edinboro/Research/BOMILP_instances/belotti_style_random_instance_generator
+HOMEBIN=${HOME}/Dropbox\ \(Edinboro\ University\)/Edinboro/Teaching/Student_Projects/Lesseski/Test_Instances/BelottiRan/generator/
 #CPLEX_DIR=$(HOME)/ILOG/CPLEX_Studio126/cplex
 
 CC=gcc

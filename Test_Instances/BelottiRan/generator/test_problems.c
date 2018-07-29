@@ -60,27 +60,52 @@ static long zrng[] =
 void main(int argc, char **argv)
 {
 	int seedno = atoi(argv[1]);
-	int n = atoi(argv[2]);
-	int m = atoi(argv[3]);          /* # constraints        */
-	int nc = atoi(argv[4]);		  /* # continuous variables */
-	int nb = atoi(argv[5]);          /* # binary variables   */
-	int ni = atoi(argv[6]);
+	int o = atoi(argv[2]);          // number objectives
+	int n = atoi(argv[3]);          // number variables
+	int m = atoi(argv[4]);          /* # constraints        */
+	int nc = atoi(argv[5]);		    /* # continuous variables */
+	int nb = atoi(argv[6]);         /* # binary variables   */
+	int ni = atoi(argv[7]);         // number integer variables
+	unsigned char *filename[10] = {"testp1.lp", "testp2.lp", "testp3.lp", "testp4.lp", "testp5.lp", "testp6.lp", "testp7.lp", "testp8.lp", "testp9.lp", "testp10.lp"};
+	
+	srand(seedno);
 	
 	printf("seedno: %d\n",seedno);
+/*	printf("%c\n", filename[5]);*/
 	
-	int  i, j, ccount=0;
+/*	exit(0);*/
+	
+	int  i, j, ccount=0, upper=0, lower=0;
 	double obj_coef1[n], obj_coef2[n], coef[m][n], rhs[m];
 
 
 	//CPXLPptr   lpclone=NULL;
+	
+/*	exit(0);*/
+	
+	/*** rand_omly assign technological coefficients ***/
 
-		if (( testp1 = fopen("testp1.lp","w+"))==NULL)
-			  {
-			  exit(1);
-			  }
+    upper = 2100;
+    lower = -100;
+	for(j=0;j<m;j++)
+		for(i=0;i<n;i++)
+			coef[j][i] = (double)((rand() % (upper - lower + 1)) + lower)/100.; //-1 + rand_(rand()+6)*(21);
 
-		if (( testp2 = fopen("testp2.lp","w+"))==NULL)
+/*    exit(0);*/
+	
+	/*** rand_omly assign RHS    ***/
+
+    upper = 10000;
+    lower = 5000;
+	for(j=0;j<m;j++)
+		rhs[j] = (double)((rand() % (upper - lower + 1)) + lower)/100.; //50 + rand_(rand()+7)*100;
+    
+    for(int k = 0; k < o; k++)
+    {
+        ccount = 0;
+		if (( testp1 = fopen(filename[k],"w+"))==NULL)
 			  {
+			  printf("could not open file: %s\n",filename[k]);
 			  exit(1);
 			  }
 
@@ -88,151 +113,87 @@ void main(int argc, char **argv)
 
 		/*** rand_omly assign objective coefficients  ***/
 
+        upper = 2000;
+        lower = -1000;
 		for(i=0; i<nc;i++)   /* continuous var. */
 		{
-			obj_coef1[i] = -10 + rand_(seedno)*20;
-			obj_coef2[i] = -10 + rand_(seedno+1)*20;
+			obj_coef1[i] = (double)((rand() % (upper - lower + 1)) + lower)/100.; //-10 + rand_(rand() + 8*k)*20;
+/*			obj_coef2[i] = -10 + rand_(rand()+1)*20;*/
 
 		}
 
+        upper = 40000;
+        lower = -20000;
 		for(i=nc; i<nc+nb; i++)  /* binary var. */
 		{
-			obj_coef1[i] = -200 + rand_(seedno+2)*400;
-			obj_coef2[i] = -200 + rand_(seedno+3)*400;
+			obj_coef1[i] = (double)((rand() % (upper - lower + 1)) + lower)/100.; //-200 + rand_(rand()+2 + 8*k)*400;
+/*			obj_coef2[i] = -200 + rand_(rand()+3)*400;*/
 
 		}
 
+        upper = 10000;
+        lower = -5000;
 		for(i=nc+nb; i<n; i++)  /* integer var. */
 		{
-			obj_coef1[i] = -50 + rand_(seedno+4)*100;
-			obj_coef2[i] = -50 + rand_(seedno+5)*100;
+			obj_coef1[i] = (double)((rand() % (upper - lower + 1)) + lower)/100.; //-50 + rand_(rand()+4 + 8*k)*100;
+/*			obj_coef2[i] = -50 + rand_(rand()+5)*100;*/
 
 		}
-
-
-		/*** rand_omly assign technological coefficients ***/
-
-		for(j=0;j<m;j++)
-			for(i=0;i<n;i++)
-				coef[j][i] = -1 + rand_(seedno+6)*(21);
-
-		
-		/*** rand_omly assign RHS    ***/
-
-			for(j=0;j<m;j++)
-				rhs[j] = 50 + rand_(seedno+7)*100;
 
 
 		/*** write the model1  ***/
 
 
-	/********************************************************/
-	/* Objective      
-	/********************************************************/
+	    /********************************************************/
+	    /* Objective      
+	    /********************************************************/
 
-	fprintf(testp1,"MAXIMIZE\n");
-	fprintf(testp1,"OBJ: ");
-	for(i=0;i<n;i++)
-		fprintf(testp1," %+.2fx%d",obj_coef1[i],i);
+	    fprintf(testp1,"MAXIMIZE\n");
+	    fprintf(testp1,"OBJ: ");
+	    for(i=0;i<n;i++)
+		    fprintf(testp1," %+.2fx%d",obj_coef1[i],i);
 	
-   
+       
 
-	/*********************************************************/
-	/* Constraints
-	/*********************************************************/
+	    /*********************************************************/
+	    /* Constraints
+	    /*********************************************************/
 
 
-	fprintf(testp1,"\nSUBJECT TO\n");
+	    fprintf(testp1,"\nSUBJECT TO");
 
-	for(j=0;j<m;j++)
-	{
+	    for(j=0;j<m;j++)
+	    {
 	
-		fprintf(testp1,"\nC%d: ",ccount);
-			ccount++;
+		    fprintf(testp1,"\nC%d: ",ccount);
+			    ccount++;
 		
-		for(i=0;i<n;i++)
-			fprintf(testp1," %+.2fx%d",coef[j][i],i); 
+		    for(i=0;i<n;i++)
+			    fprintf(testp1," %+.2fx%d",coef[j][i],i); 
 
 
-		fprintf(testp1," + s%d = %.2f",j, rhs[j]);  /* add slack */	
+		    fprintf(testp1," + s%d = %.2f",j, rhs[j]);  /* add slack */	
 		
-	}
+	    }
 
-	/*********************************************************/
-	/* Bounds
-	/*********************************************************/
+	    /*********************************************************/
+	    /* Bounds
+	    /*********************************************************/
 
-	fprintf(testp1,"\nBinary");
-	for(i=nc; i< nc+nb; i++)
-		fprintf(testp1,"\nx%d",i);
+	    fprintf(testp1,"\nBinary");
+	    for(i=nc; i< nc+nb; i++)
+		    fprintf(testp1,"\nx%d",i);
 
-	fprintf(testp1,"\nGeneral");
-	for(i=nc+nb; i< n; i++)
-		fprintf(testp1,"\nx%d",i);
+	    fprintf(testp1,"\nGeneral");
+	    for(i=nc+nb; i< n; i++)
+		    fprintf(testp1,"\nx%d",i);
 
 	
-	fprintf(testp1,"\nEND");
+	    fprintf(testp1,"\nEND");
 
 
-
-
-
-		/*** write the model2  ***/
-
-
-	/********************************************************/
-	/* Objective      
-	/********************************************************/
-
-	fprintf(testp2,"MAXIMIZE\n");
-	fprintf(testp2,"OBJ: ");
-	for(i=0;i<n;i++)
-		fprintf(testp2," %+.2fx%d",obj_coef2[i],i);
-	
-   
-
-	/*********************************************************/
-	/* Constraints
-	/*********************************************************/
-
-
-	fprintf(testp2,"\nSUBJECT TO\n");
-
-	for(j=0;j<m;j++)
-	{
-	
-		fprintf(testp2,"\nC%d: ",ccount);
-			ccount++;
-		
-		for(i=0;i<n;i++)
-			fprintf(testp2," %+.2fx%d",coef[j][i],i); 
-
-
-		fprintf(testp2," + s%d = %.2f",j, rhs[j]);  /* add slack */	
-		
-	}
-
-	/*********************************************************/
-	/* Bounds
-	/*********************************************************/
-
-	fprintf(testp2,"\nBinary");
-	for(i=nc; i< nc+nb; i++)
-		fprintf(testp2,"\nx%d",i);
-
-	fprintf(testp2,"\nGeneral");
-	for(i=nc+nb; i< n; i++)
-		fprintf(testp2,"\nx%d",i);
-
-	
-	fprintf(testp2,"\nEND");
-
-
-
-		
 		fclose(testp1);
-		fclose(testp2);
-
+    }
 }
 
 
