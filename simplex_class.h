@@ -27,6 +27,8 @@ of nondominated solutions.*/
 #include <cmath>
 #include "multiobjective_solver.h"
 
+#include "point_class.h"
+
 using namespace std;
 
 bool CompareDoubleVectors(const vector<double> & v1, const vector<double> & v2);
@@ -42,32 +44,50 @@ struct DblVecCompare
 class Simplex
 {
         int dimension = -1;
-    	vector< vector<double> > extremePoints;
     	vector<double> normal;
     	vector<bool> extremesAreDummies;
-    	void GenerateNormal();
     	double planeVal;
     	bool isPositive = true;
-        double epsilon = .00001;
-        
-        #ifdef CPLEX
-    	    double infinity = CPX_INFBOUND;
-    	#else
-    	    double infinity = 100000000000000000000.;
-    	#endif
-    	
+
         int numDummies = 0;
         bool showNormalsInPlots = false;
         bool saveForSolution = false;
+       
+        // changed to static so they are shared across all instances
+        // static, make sure you don't copy these in a copy constructor
+        // or asignment operator
+	static double epsilon;
+	static double infinity;
+
+    	void GenerateNormal();
+
+	// bennett new
+        vector<Simplex * > adj;
+        int id;
+        vector<int> points;
+        bool split = false;
+
+        // static, make sure you don't copy these in a copy constructor
+        // or asignment operator
+        static vector<Point> * pointVector;
+        static int nextID;
+
+        // bennett kill
+        //vector< vector<double> > extremePoints;
+
+        // new private member functions
+        Simplex(int i);
+        Simplex() : Simplex(2) {};
+        Simplex(const Simplex * other);
+
+	friend class SimplexStore;
   public:
-    	Simplex(int i);
-    	Simplex() : Simplex(2) {};
+	// bennett 7/18
+	double Epsilon(void) const;
+	void Epsilon(double e);
 
-	    // bennett 7/18
-	    double Epsilon(void) const;
-	    void Epsilon(double e);
-
-    	void AddExtreme(const vector<double> & v, bool normalize);
+    	//void AddExtreme(const vector<double> & v, bool normalize);
+	void AddExtreme(int , bool normalize);
     	void PrintData() const;
     	void NormalizeNormal();
     	void Reset();
@@ -76,18 +96,34 @@ class Simplex
     	double PlaneVal();
     	vector< vector<double> > GetExtremePoints() const;
     	vector<double> GetExtremePoint(int i) const;
-    	void WriteOctaveCodeToPlotSimplex(bool a) const;
-    	bool IsPositive() const;
-    	Simplex FindAdjacentContainingOriginalPoints(const vector<Simplex> & simplices, int & simplexIndex, int & newPointIndex, int ignoreIndex, bool isIn) const;
+	void WriteOctaveCodeToPlotSimplex(bool a) const;
+	bool IsPositive() const;
+    	Simplex * FindAdjacentContainingOriginalPoints(const vector<Simplex *> & simplices, int & simplexIndex, int & newPointIndex, int ignoreIndex, bool isIn) const;
     	int GetDimension() const;
     	int GetNumDummyPoints();
     	vector<bool> ExtremesAreDummies() const;
     	int GetPointIndex(const vector<double> & point);
     	void SaveForSolution();
     	bool GetSaveForSolution() const;
+
     	void PrintNormal();
-    	bool isInSubsetOfStack(const vector<Simplex> & simplexStack, int startingScanIndex);
-    	bool deleteRepeats(vector<Simplex> & simplexStack, int startingScanIndex);
+    	bool isInSubsetOfStack(const vector<Simplex * > & simplexStack, int startingScanIndex);
+    	bool deleteRepeats(vector<Simplex*> & simplexStack, int startingScanIndex);
+
+	// bennett new
+	void Adjacent(int i, Simplex * a);
+	void Adjacent(Simplex * b);
+	Simplex * Adjacent(int i) const;
+
+	void RemoveAdjacent(Simplex * s);
+	void Points(vector<int> p, bool normalize);
+	void MarkForSplit(void);
+	bool IsMarkedForSplit(void) const;
+
+	int ID(void) const;
+
+	vector<Point> * GetPointVector(void) const;
+	void SetPointVector(vector<Point> * pv);
 };
 
 double Determinant(const vector< vector<double> > & matrix);

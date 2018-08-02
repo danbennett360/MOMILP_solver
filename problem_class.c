@@ -15,6 +15,56 @@ of nondominated solutions.*/
 #include "problem_class.h"
 #include "point_class.h"
 
+void TellAboutCurrent(vector<Simplex *> active) {
+
+   return;
+   size_t i;
+   Simplex * adj;
+
+   cout << endl;
+   cout << "There are " << active.size() << " active simplices" << endl;
+   for(auto x: active) {
+      cout <<"Simplex " << x->ID() << endl;
+
+      // print the pointsd
+      i = 0;
+      cout << "\tPoints:" << endl;
+      for (auto & point: x->GetExtremePoints()) {
+         cout << "\t\t" << i <<":  (";
+	 for(auto cord: point) {
+	    cout << cord << " ";
+	 }
+	 cout <<")" << endl;
+	 i++;
+      }
+
+      cout << "\tNormal:" << endl;
+      cout << "\t\t Has " << x->GetNormal().size() << " components" << endl;
+      cout << "\t\t<";
+      for(auto point: x->GetNormal()) {
+          cout << point << " ";
+      }
+      cout << ")" << endl;
+      cout << endl;
+
+      // print the adjacent
+      cout << "\tAdjacent: ";
+      for(i = 0; i < size_t(x->GetDimension()); i++) {
+         adj = x->Adjacent(i); 
+	 if (adj != nullptr) {
+	    cout << adj->ID() << " ";
+	 } else {
+	    cout << " X ";
+	 }
+      }
+      cout << endl;
+      cout << endl;
+   }
+   cout << endl;
+   return;
+}
+
+
 #ifdef CPLEX
     void MultiobjectiveProblem::SetEnv(CPXENVptr e)
     {
@@ -138,7 +188,8 @@ void MultiobjectiveProblem::ConvertLPs()
 			    rhs[0] = glp_get_row_lb(lps[k], i+1);
 			    rhs[0] = -rhs[0];
 			    glp_set_mat_row(lps[k], i+1, status, colIndices, rowCoefs);
-			    glp_set_row_bnds(lps[k], i+1, GLP_UP, NULL, rhs[0]);
+			    //glp_set_row_bnds(lps[k], i+1, GLP_UP, NULL, rhs[0]);
+			    glp_set_row_bnds(lps[k], i+1, GLP_UP, 0, rhs[0]);
 			#endif
 		}
 		if(!containsEqualities && row_sense[i] == 'E')
@@ -179,8 +230,8 @@ void MultiobjectiveProblem::ConvertLPs()
      	#endif
      	if ( status == 0 ) 
        	{
-         		printf ("When trying to get objective sense, found that no problem object exists, error code %d\n", status);
-         		exit(0);
+		printf ("When trying to get objective sense, found that no problem object exists, error code %d\n", status);
+       		exit(0);
      	}
      	else if( status == -1 )	// Problem is maximization type - switch to minimization
      	{	
@@ -271,7 +322,8 @@ void MultiobjectiveProblem::AddRowsForObjectives()
         status = glp_add_cols(mainProb, numObjectives);
         for(int i = status; i < status + numObjectives; i++) 
         {
-            glp_set_col_bnds(mainProb, i, GLP_FR, NULL, NULL);
+            //glp_set_col_bnds(mainProb, i, GLP_FR, NULL, NULL);
+            glp_set_col_bnds(mainProb, i, GLP_FR, 0, 0);
         }
     #endif
 	
@@ -286,7 +338,8 @@ void MultiobjectiveProblem::AddRowsForObjectives()
         }
     #else
         status = glp_add_rows(mainProb, numObjectives);
-        for(int i = status; i < status + numObjectives; i++) glp_set_row_bnds(mainProb, i, GLP_FX, 0., NULL);
+        //for(int i = status; i < status + numObjectives; i++) glp_set_row_bnds(mainProb, i, GLP_FX, 0., NULL);
+        for(int i = status; i < status + numObjectives; i++) glp_set_row_bnds(mainProb, i, GLP_FX, 0., 0);
     #endif
     	
 	numRows += numObjectives;
@@ -560,90 +613,81 @@ bool MultiobjectiveProblem::StoreObjectivesInMainProb()
     return storeObjectivesInMainProb;
 }
 
-vector<Simplex> MultiobjectiveProblem::DichotomicSearch()
+void MultiobjectiveProblem::DichotomicSearch(SimplexStore & store)
 {
     int status = 0;
-    vector<Simplex> retVec;
+    SimplexStore retVal;
     
     #ifdef CPLEX
         tempProb = CPXcloneprob (env, mainProb, &status);
-    /*    cout << status << endl;*/
+        /*    cout << status << endl;*/
         if ( status ) 
       	{
-        		printf ("Failed to clone main problem.\n");
-        		exit(0);
+       		printf ("Failed to clone main problem.\n");
+       		exit(0);
       	}
       	
       	status = CPXchgprobtype(env, tempProb, CPXPROB_LP);
       	if ( status ) 
       	{
-        		printf ("Failed to change the problem from a MIP to an LP.\n");
-        		exit(0);
+       		printf ("Failed to change the problem from a MIP to an LP.\n");
+       		exit(0);
       	}
     #else
         tempProb = glp_create_prob();
         glp_copy_prob(tempProb, mainProb, GLP_ON);
-  	#endif
+    #endif
   	
-/*  	status = CPXwriteprob (env, tempProb, "tempprob.lp", "LP");*/
+    /*  status = CPXwriteprob (env, tempProb, "tempprob.lp", "LP");*/
   	
-  	retVec = MeatOfDichotomicSearch();
-  	return retVec;
+    MeatOfDichotomicSearch(store);
+    return;
 }
 
-vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
-{
+// compute primal points and save in the point stack.
+// This responsiblitiy should probably be moved to the point class.
+Point MultiobjectiveProblem::MakePoint(vector<double> point) {
+
+    Point rv;
+    double * x;
     int status = 0;
-    vector<Simplex> retVec;
-    vector<Simplex> simplexStack;
-    vector<Simplex> simplicesToSplit;
-    vector<Point> pointStack;
-    Simplex temp(numObjectives);
-    Simplex temp2(numObjectives);
-    Simplex currentSimplex(numObjectives);
-    vector<double> point(numObjectives, 0.);
-    vector<double> point2(numObjectives, 0.);
+    x = new double[numCols];
+
+    #ifdef CPLEX
+        status = CPXgetx (env, tempProb, x, 0, numCols-1);
+        if ( status ) {
+                printf ("%s(%d): CPXgetx, Failed to get x values,  error code %d\n", __FILE__, __LINE__, status);
+                exit(1);
+        }
+    #else
+        if(!interiorPoint) for(int j = 0; j < numCols; j++) x[j] = glp_get_col_prim(tempProb, j+1);
+        else for(int j = 0; j < numCols; j++) x[j] = glp_ipt_col_prim(tempProb, j+1);
+    #endif
+    if(storeObjectivesInMainProb) {
+         rv = Point(point, x,  numCols-numObjectives);
+    }
+    else {
+        rv = Point(point, x, numCols);
+    }
+
+    delete[] x;
+    return rv;
+}
+
+// Get initial simplex using lexicographic minimization
+void MultiobjectiveProblem::AddFirstSimplex(SimplexStore & store, vector<vector<double> > & extremes, vector<Simplex *> & simplexStack) {
+
     vector<double> mins(numObjectives, infinity);
     vector<double> maxs(numObjectives, -infinity);
-    vector< vector<double> > extremes;
-    vector<string> varNames;
-    int iterator = 0;
-/*    int simplexIndex = 0, newPointIndex = numObjectives-1;*/
-    vector<int> removeTheseIndicesFromSimplexStack;
-    unsigned int k = 0, l = 0;
-    int numSaved = 0;
-    long maxIter = maxIterations;
-    double *x;
-    
-/*    bool DEBUG = true;*/
-    
-    // Get initial simplex using lexicographic minimization
+    vector<int> simplexPoints;
+    vector<double> point(numObjectives, 0.);
+    Simplex * temp=nullptr;
+
     for(int i = 0; i < numObjectives; i++)
     {
         extremes.push_back(LexicographicMinimization(i));
         if(i != 0) CheckForDomination(extremes, epsilon);
-        if(SAVE_POINTS) 
-        {
-            x = new double[numCols];
-            
-            #ifdef CPLEX
-                status = CPXgetx (env, tempProb, x, 0, numCols-1);
-                if ( status ) {
-            		printf ("%s(%d): CPXgetx, Failed to get x values,  error code %d\n", __FILE__, __LINE__, status);
-            		exit(0);
-          	    }
-          	#else
-          	    if(!interiorPoint) for(int j = 0; j < numCols; j++) x[j] = glp_get_col_prim(tempProb, j+1);
-          	    else for(int j = 0; j < numCols; j++) x[j] = glp_ipt_col_prim(tempProb, j+1);
-      	    #endif
-      	    
-            if(storeObjectivesInMainProb) pointStack.push_back(Point(extremes[i], x, numCols-numObjectives));
-            else pointStack.push_back(Point(extremes[i], x, numCols));
-            delete[] x;
-        }
     }
-    
-/*    cout << extremes.size() << endl;*/
     
     for(int i = 0; i < numObjectives; i++)
     {
@@ -651,25 +695,27 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
         {
             mins[i] = min(mins[i], extremes[j][i]);
             maxs[i] = max(maxs[i], extremes[j][i]);
-/*            cout << extremes[i][j] << "\t";*/
         }
-/*        cout << endl;*/
-/*        cout << mins[i] << "\t" << maxs[i] << endl;*/
     }
-    
+   
+    int location;
     for(int i = 0; i < numObjectives; i++)
     {
         for(int j = 0; j < numObjectives; j++)
         {
             if(i == j) point[j] = infinity; 
             else point[j] = mins[j];
-/*            cout << point[j] << "\t";*/
         }
-/*        cout << endl;*/
-        temp.AddExtreme(point, NormalizeObjectiveMultipliers());
+	Point p = MakePoint(point);
+	location = store.AddPoint(p);
+	simplexPoints.push_back(location);
     }
-    
+
+    temp = store.AddSimplex(simplexPoints, NormalizeObjectiveMultipliers());
+   
     simplexStack.push_back(temp);
+
+    // why scan for repeats, we only have one simplex present?
     if(SCAN_FOR_REPEATS)
     {
         scanForRepeats(simplexStack);
@@ -678,12 +724,20 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
     if(DEBUG)
     {
         cout << "**************************\nInitial Simplex: " << endl;
-        for(unsigned int i = 0; i < simplexStack.size(); i++) simplexStack[i].WriteOctaveCodeToPlotSimplex(true);
+        for(unsigned int i = 0; i < simplexStack.size(); i++) simplexStack[i]->WriteOctaveCodeToPlotSimplex(true);
         cout << "**************************" << endl;
     }
-   
-    for(int i = 0; i < numObjectives; i++)
-    {
+    return;
+}
+
+
+void MultiobjectiveProblem::DoInitialSplits(SimplexStore & simplexStore, vector<vector<double> > & extremes, vector<Simplex *> & simplexStack) {
+
+    Simplex * currentSimplex;
+    vector<Simplex * > simplicesToSplit;
+    size_t k;
+
+    for(int i = 0; i < numObjectives; i++) {
         if(DEBUG)
         {
             cout << "Adding point: ";
@@ -693,15 +747,15 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
     
         if(i == 0)
         {
-            currentSimplex = simplexStack[simplexStack.size()-1];
+            currentSimplex = simplexStack.back();
             simplexStack.pop_back();
         }
         else
         {
             k = 0;
-            while( (!relativeDistance && simplexStack[k].MultiplyPointsByNormal(extremes[i]) >= simplexStack[k].PlaneVal() - epsilon) ||
+            while( (!relativeDistance && simplexStack[k]->MultiplyPointsByNormal(extremes[i]) >= simplexStack[k]->PlaneVal() - epsilon) ||
                    (relativeDistance && 
-                        (simplexStack[k].MultiplyPointsByNormal(extremes[i]) - simplexStack[k].PlaneVal())/abs(simplexStack[k].PlaneVal()) >= - epsilon) )
+                        (simplexStack[k]->MultiplyPointsByNormal(extremes[i]) - simplexStack[k]->PlaneVal())/abs(simplexStack[k]->PlaneVal()) >= - epsilon) )
             {
 	        // changed the order of k++ and test so the loop doesn't bomb when k = size.
                 k++;
@@ -713,36 +767,38 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
             }
             currentSimplex = simplexStack[k];
             simplexStack.erase(simplexStack.begin() + k);
-            
         }
+
+	// at this point, currentSimplex is the simplex we want to split and 
+	//                extremes[i] is the point we want to split it on.
         
         simplicesToSplit.push_back(currentSimplex);
-        CheckIfAdjacentsAreShadowed(simplexStack, simplicesToSplit, currentSimplex, extremes[i], numObjectives, relativeDistance, 0.000000001);//epsilon*epsilon);
+	currentSimplex->MarkForSplit();
+
+        CheckIfAdjacentsAreShadowed(simplexStack, simplicesToSplit, currentSimplex, extremes[i], numObjectives, relativeDistance, 0.000000001, simplexStore);
+	//epsilon*epsilon);
         
         if(DEBUG) 
         {
             cout << "Size of simplicesToSplit: " << simplicesToSplit.size() << endl;
             cout << "The simplices that will be split are: " << endl;
         }
-        
-        l = simplexStack.size();
-        
-        for(unsigned int j = 0; j < simplicesToSplit.size(); j++) 
-        {
-            if(DEBUG) simplicesToSplit[j].WriteOctaveCodeToPlotSimplex(false);
-            AddNewSimplices(simplexStack, simplicesToSplit[j], extremes[i], NormalizeObjectiveMultipliers(), false, relativeDistance, epsilon);
-        }
-        
+       
+        DoSplit(simplexStack, simplexStore, simplicesToSplit, extremes[i]);
+
+	TellAboutCurrent(simplexStack);
+       
+        size_t l = simplexStack.size();
+
+        // should not need this any longer.
         if(simplicesToSplit.size() > 1) deleteRepeats(simplexStack, l);
-        
+       
         simplicesToSplit.resize(0);
         
-/*        AddNewSimplices(simplexStack, currentSimplex, extremes[i], NormalizeObjectiveMultipliers(), false, epsilon);*/
-/*        CheckForSimplicesThatNeedReplaced(simplexStack, simplexIndex, newPointIndex, numObjectives, extremes[i], NormalizeObjectiveMultipliers(), epsilon);*/
         if(DEBUG)
         {
             cout << "**************************\nStored simplices after adding " << i+1 << "th initial extreme point: " << endl;
-            for(unsigned int j = 0; j < simplexStack.size(); j++) simplexStack[j].WriteOctaveCodeToPlotSimplex(true);
+            for(unsigned int j = 0; j < simplexStack.size(); j++) simplexStack[j]->WriteOctaveCodeToPlotSimplex(true);
             cout << "**************************" << endl;
         }
         
@@ -751,10 +807,38 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
             scanForNegativeNormal(simplexStack);
         }
     }
+    return;
+}
+
+void MultiobjectiveProblem::MeatOfDichotomicSearch(SimplexStore & simplexStore)
+{
+    int status = 0;
+    vector<Simplex * > simplexStack ;
+    vector< vector<double> > extremes;
+    vector<Simplex *> simplicesToSplit;
+    Simplex * currentSimplex;
+
+    vector<double> point(numObjectives, 0.);
+    vector<double> point2(numObjectives, 0.);
+    int iterator = 0;
+    vector<int> removeTheseIndicesFromSimplexStack;
+    long int k = 0;
+    long int  l = 0;
+    int numSaved = 0;
+    long maxIter = maxIterations;
     
+/*    bool DEBUG = true;*/
+    
+    // Get initial simplex using lexicographic minimization
+    AddFirstSimplex(simplexStore, extremes, simplexStack);
+    TellAboutCurrent(simplexStack);
+
+    DoInitialSplits(simplexStore, extremes, simplexStack);
+   
     cout << "Finished adding initial simplices, entering body of the simplex generation process." << endl;
     
     k = max(1, int(simplexStack.size())-1);
+
     while(k > 0 && iterator < maxIter)
     {
 /*        if(iterator == 5080) DEBUG = true;*/
@@ -764,8 +848,8 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
         {
             for(unsigned int j = 0; j < simplexStack.size(); j++) 
             {
-                if(simplexStack[j].GetSaveForSolution()) numSaved++;
-/*                simplexStack[j].WriteOctaveCodeToPlotSimplex(true);*/
+                if(simplexStack[j]->GetSaveForSolution()) numSaved++;
+/*                simplexStack[j]->WriteOctaveCodeToPlotSimplex(true);*/
             }
             cout << "Summary after iteration " << iterator << ":" << endl;
             cout << "Number of Simplices in List: " << simplexStack.size() << "\tNumber Saved: " << numSaved << "\tNumber left to search: " << simplexStack.size() - numSaved << endl;
@@ -778,26 +862,31 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
             cout << "-----------------------------------------------------------------------------------" << endl;
             cout << "Iteration: " << iterator << "\tSize of stack: " << simplexStack.size() <<endl;
             cout << "**************************\nSimplices in stack: " << endl;
-            for(unsigned int i = 0; i < simplexStack.size(); i++) simplexStack[i].WriteOctaveCodeToPlotSimplex(true);
+            for(unsigned int i = 0; i < simplexStack.size(); i++) simplexStack[i]->WriteOctaveCodeToPlotSimplex(true);
             cout << "\%**************************\n\%Simplices stored in return vector:" << endl;
-            for(unsigned int i = 0; i < retVec.size(); i++) retVec[i].WriteOctaveCodeToPlotSimplex(true);
+            //for(unsigned int i = 0; i < retVec.size(); i++) retVec[i].WriteOctaveCodeToPlotSimplex(true);
             cout << "^^^^^^^^^^^^^^^^^^^^^^^^^^^^" << endl;
         }
         
         k = simplexStack.size()-1;
-        while(simplexStack[k].GetSaveForSolution()) k--;
+        while(k >= 0 and simplexStack[k]->GetSaveForSolution()) k--;
+
+	//cout << "k = " << k <<  " and the stack size is " << simplexStack.size() << endl;
+
+	//DEBUG = true;
         if(k > 0)
         {
             currentSimplex = simplexStack[k];
             simplexStack.erase(simplexStack.begin() + k);
     /*        simplexStack.pop_back();*/
             
-    /*        currentSimplex.PrintData();*/
+    /*        currentSimplex->PrintData();*/
             
     /*        status = CPXwriteprob (env, tempProb, "prob_before.lp", "LP");*/
     /*        exit(0);*/
-            
-            ChangeTempObjCoefs(currentSimplex.GetNormal());
+        
+            ChangeTempObjCoefs(currentSimplex->GetNormal());
+	    //cout << "Here i am  1" << endl;
             
     /*        status = CPXwriteprob (env, tempProb, "prob.lp", "LP");*/
     /*        exit(0);*/
@@ -815,61 +904,43 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
                 		printf ("%s(%d): GLPK failed to solve tempProb,  error code %d\n", __FILE__, __LINE__, status);
                 		exit(1);
               	}
-          	#endif
+            #endif
           	
-          	if(DEBUG)
-          	{
-              	point = currentSimplex.GetNormal();
+            if(DEBUG)
+            {
+              	point = currentSimplex->GetNormal();
               	cout << "new current normal is: <";
               	for(int i = 0; i < numObjectives; i++) cout << point[i] << "\t";
               	cout << ">" << endl;
-          	}
+            }
           	
           	point = GetObjectiveValues(tempProb);
           	
           	if(DEBUG)
           	{
-              	cout << "new point is: (";
-              	for(int i = 0; i < numObjectives; i++) cout << point[i] << "\t";
-              	cout << ")" << endl;
-              	cout << currentSimplex.MultiplyPointsByNormal(point) << "\t" << currentSimplex.PlaneVal() << endl;
-              	currentSimplex.WriteOctaveCodeToPlotSimplex(true);
-              	cout << "Distance to simplex: " << currentSimplex.MultiplyPointsByNormal(point) - (currentSimplex.PlaneVal() - epsilon) << "\nIn Front of An Adjacent: " << PointIsInFrontOfAnAdjacent(simplexStack, currentSimplex, point, epsilon) << endl;
+              	    cout << "new point is: (";
+              	    for(int i = 0; i < numObjectives; i++) cout << point[i] << "\t";
+              	    cout << ")" << endl;
+              	    cout << currentSimplex->MultiplyPointsByNormal(point) << "\t" << currentSimplex->PlaneVal() << endl;
+                    currentSimplex->WriteOctaveCodeToPlotSimplex(true);
+              	    cout << "Distance to simplex: " << currentSimplex->MultiplyPointsByNormal(point) - (currentSimplex->PlaneVal() - epsilon) << "\nIn Front of An Adjacent: " << PointIsInFrontOfAnAdjacent(simplexStack, currentSimplex, point, epsilon) << endl;
           	}
           	
-          	if( (!relativeDistance && currentSimplex.MultiplyPointsByNormal(point) < currentSimplex.PlaneVal() - epsilon) ||
-          	    (relativeDistance && (currentSimplex.MultiplyPointsByNormal(point) - currentSimplex.PlaneVal())/abs(currentSimplex.PlaneVal()) < - epsilon) )
+          	if( (!relativeDistance && currentSimplex->MultiplyPointsByNormal(point) < currentSimplex->PlaneVal() - epsilon) ||
+         	   (relativeDistance && (currentSimplex->MultiplyPointsByNormal(point) - currentSimplex->PlaneVal())/abs(currentSimplex->PlaneVal()) < - epsilon) )
           	{
-          	    if(SAVE_POINTS) 
-                {
-                    x = new double[numCols];
-                    
-                    #ifdef CPLEX
-                        status = CPXgetx (env, tempProb, x, 0, numCols-1);
-                        if ( status ) {
-                    		printf ("%s(%d): CPXgetx, Failed to get x values,  error code %d\n", __FILE__, __LINE__, status);
-                    		exit(0);
-                  	    }
-                  	#else
-                  	    if(!interiorPoint) for(int j = 0; j < numCols; j++) x[j] = glp_get_col_prim(tempProb, j+1);
-              	        else for(int j = 0; j < numCols; j++) x[j] = glp_ipt_col_prim(tempProb, j+1);
-              	    #endif
-              	    
-    /*                pointStack.push_back(Point(point, x, numCols));*/
-                    if(storeObjectivesInMainProb) pointStack.push_back(Point(point, x, numCols-numObjectives));
-                    else pointStack.push_back(Point(point, x, numCols));
-                    delete[] x;
-                }
                 
-          	    if(DEBUG)
-          	    {
-    /*      	        cout << "Distance to simplex: " << currentSimplex.MultiplyPointsByNormal(point) - (currentSimplex.PlaneVal() - epsilon) << "\nIn Front of An Adjacent: " << PointIsInFrontOfAnAdjacent(simplexStack, currentSimplex, point, epsilon) << endl;*/
+          	if(DEBUG) {
+          	        /*cout << "Distance to simplex: " << currentSimplex->MultiplyPointsByNormal(point) - (currentSimplex->PlaneVal() - epsilon) 
+                              << "\nIn Front of An Adjacent: " << PointIsInFrontOfAnAdjacent(simplexStack, currentSimplex, point, epsilon) << endl;*/
           	        cout << "Adding three new simplices to stack" << endl;
           	    }
           	    
-          	    simplicesToSplit.push_back(currentSimplex);
-                CheckIfAdjacentsAreShadowed(simplexStack, simplicesToSplit, currentSimplex, point, numObjectives, relativeDistance, 0.000000001);//epsilon*epsilon);
-                
+          	simplicesToSplit.push_back(currentSimplex);
+		currentSimplex->MarkForSplit();
+                CheckIfAdjacentsAreShadowed(simplexStack, simplicesToSplit, currentSimplex, point, numObjectives, relativeDistance, 0.000000001, simplexStore);
+		//epsilon*epsilon);
+               
                 if(DEBUG) cout << "Size of simplicesToSplit: " << simplicesToSplit.size() << endl;
                 if(DEBUG) cout << "Size of simplexStack: " << simplexStack.size() << endl;
                 if(DEBUG) 
@@ -877,16 +948,13 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
                     cout << "-----------------------\nThe simplices to be split are: " << endl;
                     for(unsigned int j = 0; j < simplicesToSplit.size(); j++) 
                     {
-                        simplicesToSplit[j].WriteOctaveCodeToPlotSimplex(false);
+                        simplicesToSplit[j]->WriteOctaveCodeToPlotSimplex(false);
                     }
                     cout << "-----------------------\n";
                 }
                 
-                l = simplexStack.size();
-                for(unsigned int j = 0; j < simplicesToSplit.size(); j++) 
-                {
-                    AddNewSimplices(simplexStack, simplicesToSplit[j], point, NormalizeObjectiveMultipliers(), false, relativeDistance, epsilon);
-                }
+                DoSplit(simplexStack, simplexStore, simplicesToSplit, point);
+	        TellAboutCurrent(simplexStack);
                 
                 if(DEBUG) cout << "Size of simplexStack after adding: " << simplexStack.size() << endl;
                 
@@ -896,25 +964,24 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
                 
                 simplicesToSplit.resize(0);
           	    
-/*          	    AddNewSimplices(simplexStack, currentSimplex, point, NormalizeObjectiveMultipliers(), false, epsilon);*/
-
-/*                CheckForSimplicesThatNeedReplaced(simplexStack, simplexIndex, newPointIndex, numObjectives, point, NormalizeObjectiveMultipliers(), epsilon);*/
           	}
           	else
           	{
     /*      	    retVec.push_back(currentSimplex);*/
-                currentSimplex.SaveForSolution();
-                simplexStack.push_back(currentSimplex);
+                    currentSimplex->SaveForSolution();
+                    simplexStack.push_back(currentSimplex);
           	    
           	    if(DEBUG) cout << "No new point found" << endl;
           	}
       	}
+	//DEBUG = false;
       	
       	if(SCAN_FOR_NEGATIVE_NORMAL)
         {
             scanForNegativeNormal(simplexStack);
         }
     }
+
     if(iterator == maxIter)
     {
         cout << "Max iterations (" << maxIter << ") reached in meat of dichotomic search. Consider increasing value. Exiting!" << endl;
@@ -922,8 +989,8 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
         cout << "**************************\nSimplices still on stack: " << endl;
         for(unsigned int j = 0; j < simplexStack.size(); j++) 
         {
-            if(simplexStack[j].GetSaveForSolution()) numSaved++;
-            simplexStack[j].WriteOctaveCodeToPlotSimplex(true);
+            if(simplexStack[j]->GetSaveForSolution()) numSaved++;
+            simplexStack[j]->WriteOctaveCodeToPlotSimplex(true);
         }
         cout << "\%**************************" << endl;
         
@@ -938,8 +1005,8 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
     
 /*    if(DEBUG) */
 /*    {*/
-  	    cout << "**************************\nSimplices after dichotomic search (which took " << iterator << " iterations): " << endl;
-        for(unsigned int i = 0; i < simplexStack.size(); i++) simplexStack[i].WriteOctaveCodeToPlotSimplex(true);
+        cout << "**************************\nSimplices after dichotomic search (which took " << iterator << " iterations): " << endl;
+        for(unsigned int i = 0; i < simplexStack.size(); i++) simplexStack[i]->WriteOctaveCodeToPlotSimplex(true);
         cout << "**************************\nTotal number in list is: " << simplexStack.size() << endl;
         
         cout << "*************************************\nThe individual extreme points discovered are:\n";
@@ -950,34 +1017,49 @@ vector<Simplex> MultiobjectiveProblem::MeatOfDichotomicSearch()
 /*    */
 /*    if(DEBUG) */
 /*    {*/
-/*  	    cout << "**************************\nSimplices after post processing: " << endl;*/
+/*     */
 /*        for(unsigned int i = 0; i < retVec.size(); i++) retVec[i].WriteOctaveCodeToPlotSimplex(true);*/
 /*        cout << "**************************" << endl;*/
 /*    }*/
 
     // bennett 6/18
-    if(SAVE_POINTS) 
-    {
-        #ifdef CPLEX
-            varNames = GetVarNames(env, tempProb, numCols);
-        #else
-            varNames = GetVarNames(tempProb, numCols);
-        #endif
-
-        vector<Point>tmp;
-        bool append = false;
-
-        for (auto & tmpPt : pointStack) {
-          if (find(tmp.begin(),tmp.end(),tmpPt) == tmp.end())  {
-	      tmp.push_back(tmpPt);
-	      tmpPt.WritePointToFile("points.txt", varNames, append);
-	      append = true;
-	      }
-
-        }
+    if(SAVE_POINTS) {
+       DumpPoints(simplexStore);
     }
     
-    return simplexStack;
+    return;
+}
+
+// this will eventually go away.
+void MultiobjectiveProblem::DumpPoints(SimplexStore & store) {
+    vector<string> varNames;
+
+    #ifdef CPLEX
+       varNames = GetVarNames(env, tempProb, numCols);
+    #else
+       varNames = GetVarNames(tempProb, numCols);
+    #endif
+
+    int i;
+    bool extreme = false;
+    Point tmpPoint;
+    bool append = false;
+
+    for(i=0;i<store.PointCount(); i++) {
+        tmpPoint = store.GetPoint(i);
+	extreme = false;
+	for(auto x: tmpPoint.Data()) {
+            if (x >= infinity) {
+	       extreme = true;
+	    }
+	}
+
+	if (not extreme) {
+            tmpPoint.WritePointToFile("points.txt", varNames, append);
+	    append = true;
+	}
+    }
+    return;
 }
 
 void MultiobjectiveProblem::ChangeTempObjCoefs(int i)
@@ -988,8 +1070,8 @@ void MultiobjectiveProblem::ChangeTempObjCoefs(int i)
 		    printf ("Failed to change obj coef. Error code %d\n", status);
 	    }
 	#else
-	    if(storeObjectivesInMainProb) for(unsigned int j = 0; j < numCols - numObjectives; j++) glp_set_obj_coef(tempProb, j+1, objectiveCoefs[i][j]);
-	    else for(unsigned int j = 0; j < numCols; j++) glp_set_obj_coef(tempProb, j+1, objectiveCoefs[i][j]);
+	    if(storeObjectivesInMainProb) for(int j = 0; j < numCols - numObjectives; j++) glp_set_obj_coef(tempProb, j+1, objectiveCoefs[i][j]);
+	    else for(int j = 0; j < numCols; j++) glp_set_obj_coef(tempProb, j+1, objectiveCoefs[i][j]);
 	#endif
 	
 /*	#ifdef CPLEX*/
@@ -1137,15 +1219,15 @@ vector<double> MultiobjectiveProblem::LexicographicMinimization(int i)
     #ifdef CPLEX
         status = CPXlpopt (env, tempProb);
      	if ( status ) {
-        		printf ("%s(%d): CPXlpopt, Failed to solve tempProb,  error code %d\n", __FILE__, __LINE__, status);
-        		exit(0);
+        	printf ("%s(%d): CPXlpopt, Failed to solve tempProb,  error code %d\n", __FILE__, __LINE__, status);
+        	exit(1);
       	}
     #else  	
        if(interiorPoint) status = glp_interior(tempProb, NULL);
        else status = glp_simplex(tempProb, NULL);
        if ( status ) {
-        		printf ("%s(%d): GLPK failed to solve tempProb,  error code %d\n", __FILE__, __LINE__, status);
-        		exit(1);
+        	printf ("%s(%d): GLPK failed to solve tempProb,  error code %d\n", __FILE__, __LINE__, status);
+        	exit(1);
       	}
   	#endif
   	
@@ -1185,7 +1267,8 @@ vector<double> MultiobjectiveProblem::LexicographicMinimization(int i)
              	}
             #else
                 status = glp_add_rows(tempProb, 1);
-                glp_set_row_bnds(tempProb, status, GLP_UP, NULL, point[i]);
+                //glp_set_row_bnds(tempProb, status, GLP_UP, NULL, point[i]);
+                glp_set_row_bnds(tempProb, status, GLP_UP, 0, point[i]);
                 indices.insert(indices.begin(), 0);
                 glp_set_mat_row(tempProb, status, rowIndices.size(), &indices[0], &objectiveCoefs[i][0]);
                 indices.erase(indices.begin());
@@ -1245,7 +1328,8 @@ vector<double> MultiobjectiveProblem::LexicographicMinimization(int i)
                      	}
                     #else
                         status = glp_add_rows(tempProb, 1);
-                        glp_set_row_bnds(tempProb, status, GLP_UP, NULL, point[j]);
+                        //glp_set_row_bnds(tempProb, status, GLP_UP, NULL, point[j]);
+                        glp_set_row_bnds(tempProb, status, GLP_UP, 0, point[j]);
                         indices.insert(indices.begin(), 0);
                         glp_set_mat_row(tempProb, status, rowIndices.size(), &indices[0], &objectiveCoefs[j][0]);
                         indices.erase(indices.begin());
@@ -1266,7 +1350,8 @@ vector<double> MultiobjectiveProblem::LexicographicMinimization(int i)
       	        for(int j = 0; j < numObjectives; j++)
       	        {
           	        val = glp_get_col_lb(tempProb, objectiveColIndices[j] + 1);
-                  	glp_set_col_bnds(tempProb, objectiveColIndices[j] + 1, GLP_LO, val, NULL);
+                  	//glp_set_col_bnds(tempProb, objectiveColIndices[j] + 1, GLP_LO, val, NULL);
+                  	glp_set_col_bnds(tempProb, objectiveColIndices[j] + 1, GLP_LO, val, 0);
               	}
       	    #endif
       	}
@@ -1285,104 +1370,33 @@ vector<double> MultiobjectiveProblem::LexicographicMinimization(int i)
   	return point;
 }
 
-void AddNewSimplices(   vector<Simplex> & simplexStack, const Simplex & currentSimplex, const vector<double> & point, bool normalize, bool useAdjacent, 
-                        bool relativeDistance, double epsilon)
-{
-    vector< vector<double> > extremePoints = currentSimplex.GetExtremePoints();
-    int dim = currentSimplex.GetDimension();
-    Simplex temp(dim);
-    Simplex temp2(dim);
-    int simplexIndex = 0;
-    int newPointIndex = 0;
-    bool save = currentSimplex.GetSaveForSolution();
+void  MultiobjectiveProblem::DoSplit(vector<Simplex *> & simplexStack, SimplexStore & simplexStore, vector<Simplex *> & simplicesToSplit, vector<double> & point) {
     
-    epsilon *= epsilon;
-    
-/*    bool DEBUG = true;*/
-    
-    for(int i = 0; i < dim; i++)
-    {
-        temp.Reset();
-        
-        if(useAdjacent)
-        {
-          	temp2 = currentSimplex.FindAdjacentContainingOriginalPoints(simplexStack, simplexIndex, newPointIndex, i, false);
-          	if( temp2.GetDimension() > 0 && 
-          	    ((!relativeDistance && temp2.MultiplyPointsByNormal(point) < temp2.PlaneVal() - epsilon) || 
-          	     (relativeDistance && (temp2.MultiplyPointsByNormal(point) - temp2.PlaneVal())/abs(temp2.PlaneVal()) < - epsilon) ) )
-          	{
-          	    if(DEBUG) 
-          	    {
-              	    cout << "\%There is a 'dominated' simplex which needs replaced. Its index is " << simplexIndex << ". The new point index is: " << newPointIndex << ". The simplex is shown below: " << endl;
-              	    temp2.WriteOctaveCodeToPlotSimplex(true);
-          	    }
-                for(int j = 0; j < dim; j++)
-                {
-                    if(j != newPointIndex) 
-                    {
-                        temp.Reset();
-      	                for(int k = 0; k < dim; k++)
-      	                {
-      	                    if(k != j) temp.AddExtreme(temp2.GetExtremePoint(k), normalize);
-      	                }
-      	                temp.AddExtreme(point, normalize);
-      	                if(DEBUG) temp.WriteOctaveCodeToPlotSimplex(true);
-      	                if(save) temp.SaveForSolution();
-                        simplexStack.push_back(temp);
-                        if(SCAN_FOR_REPEATS)
-                        {
-                            scanForRepeats(simplexStack);
-                        }
-                    }
-                }
-                if(simplexIndex >= int(simplexStack.size()))
-                {
-                    cout << "Error, accessing elements past the end of the stack! File: " << __FILE__ << "  Line: " << __LINE__ << "  Exiting!\n";
-                    exit(0);
-                }
-                else if( simplexIndex < 0 )
-                {
-                    cout << "Error, accessing elements before the start of the stack! File: " << __FILE__ << "  Line: " << __LINE__ << "  Exiting!\n";
-                    exit(0);
-                }
-                simplexStack.erase(simplexStack.begin() + simplexIndex);
-            }
-            else
-            {
-                for(int j = 0; j < dim; j++)
-                {
-                    if(j != i) temp.AddExtreme(extremePoints[j], normalize);
-                }
-                temp.AddExtreme(point, normalize);
-                if(DEBUG) temp.WriteOctaveCodeToPlotSimplex(true);
-                if(save) temp.SaveForSolution();
-                simplexStack.push_back(temp);
-                if(SCAN_FOR_REPEATS)
-                {
-                    scanForRepeats(simplexStack);
-                }
-            }
-        }
-        else
-        {
-            for(int j = 0; j < dim; j++)
-            {
-                if(j != i) temp.AddExtreme(extremePoints[j], normalize);
-            }
-            temp.AddExtreme(point, normalize);
-            if(DEBUG) temp.WriteOctaveCodeToPlotSimplex(true);
-            if(save) temp.SaveForSolution();
-            simplexStack.push_back(temp);
-/*            if(SCAN_FOR_REPEATS)*/
-/*            {*/
-/*                scanForRepeats(simplexStack);*/
-/*            }*/
-        }
-    }    
-    
-/*    cout << "accessing last element of simplexStack, which has size: " << simplexStack.size() << endl;*/
-/*    temp = simplexStack[simplexStack.size()-1];*/
-    
+    int pos;
+    vector<Simplex *> newList;
+    Simplex * tmp;
+
+    // save point 
+    Point p =MakePoint(point);
+    pos = simplexStore.AddPoint(p);
+
+    /*
+     for(auto x: simplicesToSplit) {
+        cout << "Splitting " << x->ID() << endl;
+     }
+     cout << endl;
+     */
+    // call split
+    newList = simplexStore.SplitSimplex(simplicesToSplit, pos, NormalizeObjectiveMultipliers());
+
+    // put results back into simplexStack
+    while(newList.size() > 0) {
+       tmp = newList.back();
+       newList.pop_back();
+       simplexStack.push_back(tmp);
+    }
+
+    simplicesToSplit.clear();
     return;
 }
 
@@ -1391,13 +1405,13 @@ bool MultiobjectiveProblem::UseLexicographicOptimization()
     return useLexicographicOptimization;
 }
 
-double GetAngleBetween(const Simplex & s1, const Simplex & s2, bool normalize)
+double GetAngleBetween(const Simplex * s1, const Simplex * s2, bool normalize)
 {
-    vector<double> v1 = s1.GetNormal();
-    double dotProduct = s2.MultiplyPointsByNormal(v1);
+    vector<double> v1 = s1->GetNormal();
+    double dotProduct = s2->MultiplyPointsByNormal(v1);
     cout << "dot product: " << dotProduct << endl;
     double cosOfAngle = 0.;
-    if(!normalize) cosOfAngle = dotProduct/(GetVectorMagnitude(v1)*GetVectorMagnitude(s2.GetNormal()));
+    if(!normalize) cosOfAngle = dotProduct/(GetVectorMagnitude(v1)*GetVectorMagnitude(s2->GetNormal()));
     else cosOfAngle = dotProduct;
     cout << "cosine of angle: " << cosOfAngle << endl;
     return acos(cosOfAngle);
@@ -1414,53 +1428,6 @@ double GetVectorMagnitude(const vector<double> & v)
     return sqrt(retVal);
 }
 
-bool SplitSimplexInTwoUsingPoint(const Simplex & s, const vector<double> & point, vector<Simplex> & simplexStack, int newPointIndex, bool normalize, int startingScanIndex)
-{
-    int dim = s.GetDimension();
-    bool save = s.GetSaveForSolution();
-    Simplex temp(dim);
-    bool retBool = true;
-    
-/*    bool DEBUG = false;*/
-    
-    if(DEBUG) 
-    {
-        cout << "\%There is a 'dominated' simplex which needs replaced. The new point index is: " << newPointIndex << ". The simplex is shown below: " << endl;
-/*        s.WriteOctaveCodeToPlotSimplex(true);*/
-        cout << "dim: " << dim << endl;
-    }
-    for(int j = 0; j < dim; j++)
-    {
-        if(j != newPointIndex) 
-        {
-            temp.Reset();
-            if(save) temp.SaveForSolution();
-            for(int k = 0; k < dim; k++)
-            {
-                if(k != j) temp.AddExtreme(s.GetExtremePoint(k), normalize);
-            }
-            temp.AddExtreme(point, normalize);
-            if(DEBUG) 
-            {
-                temp.WriteOctaveCodeToPlotSimplex(true);
-                cout << "size: " << simplexStack.size() << "\n";
-                cout << "capacity: " << simplexStack.capacity() << "\n";
-                cout << "max_size: " << simplexStack.max_size() << "\n";
-            }
-            if(!temp.isInSubsetOfStack(simplexStack, startingScanIndex)) simplexStack.push_back(temp);
-            else
-            {
-                retBool = false;
-                break;
-            }
-            if(SCAN_FOR_REPEATS)
-            {
-                scanForRepeats(simplexStack);
-            }
-        }
-    }
-    return retBool;
-}
 
 /*void MultiobjectiveProblem::PostProcessDichotomicSearch(vector<Simplex> & simplices)*/
 /*{*/
@@ -1541,156 +1508,53 @@ bool SplitSimplexInTwoUsingPoint(const Simplex & s, const vector<double> & point
 /*    return;*/
 /*}*/
 
-void CheckForSimplicesThatNeedReplaced( vector<Simplex> & simplexStack, int & simplexIndex, int & newPointIndex, const int & numObjectives, 
-                                        const vector<double> & newPoint, bool normalize, bool relativeDistance, double epsilon)
-{
-    int k = simplexStack.size() - numObjectives;
-/*    int l = k;*/
-    Simplex temp(numObjectives);
-    Simplex temp2(numObjectives);
-    
-    epsilon *= epsilon;
-    
-/*    bool DEBUG = true;*/
-    
-    while(k < int(simplexStack.size()))
-    {
-        if(k >= int(simplexStack.size()))
-        {
-            cout << "Error, accessing elements past the end of the stack! File: " << __FILE__ << "  Line: " << __LINE__ << "  Exiting!\n";
-            exit(0);
-        }
-        else if( k < 0 )
-        {
-            cout << "Error, accessing elements before the start of the stack! File: " << __FILE__ << "  Line: " << __LINE__ << "  Exiting!\n";
-            exit(0);
-        }
-        temp = simplexStack[k];
-        if(DEBUG)
-        {
-            cout << "$$$$$$$$$$$$$$$$$$$$$$$\n scanning this simplex: "<< endl;
-            temp.WriteOctaveCodeToPlotSimplex(true);
-            cout << "\%its normal is: ";
-            temp.PrintNormal(); 
-            cout << endl;
-            cout << "\%Is it labelled as Positive? "<< temp.IsPositive() << endl;
-            cout << "$$$$$$$$$$$$$$$$$$$$$$$\n" << endl;
-        }
-        simplexIndex = k;
-        newPointIndex = numObjectives - 1;
-        temp2 = temp.FindAdjacentContainingOriginalPoints(simplexStack, simplexIndex, newPointIndex, numObjectives - 1, true);
-        if(!temp.IsPositive())
-        {
-            if(DEBUG) cout << "normal vector is not oriented correctly" << endl;
-           
-            if( SplitSimplexInTwoUsingPoint(temp2, newPoint, simplexStack, newPointIndex, normalize, 0) )
-            {
-                if(DEBUG)
-                {
-                    cout << "\%erasing simplex: " << endl;
-                    simplexStack[k].WriteOctaveCodeToPlotSimplex(true);
-                    cout << "\%erasing simplex: " << endl;
-                    simplexStack[simplexIndex].WriteOctaveCodeToPlotSimplex(true);
-                }
-                simplexStack.erase(simplexStack.begin() + k);
-                if(simplexIndex >= int(simplexStack.size()))
-                {
-                    cout << "Error, accessing elements past the end of the stack! File: " << __FILE__ << "  Line: " << __LINE__ << "  Exiting!\n";
-                    exit(0);
-                }
-                else if( simplexIndex < 0 )
-                {
-                    cout << "Error, accessing elements before the start of the stack! File: " << __FILE__ << "  Line: " << __LINE__ << "  Exiting!\n";
-                    exit(0);
-                }
-                simplexStack.erase(simplexStack.begin() + simplexIndex);
-                k -= 2;
-            }
-        }
-        else
-        {
-/*            if(temp2.GetDimension() > 0) cout << temp2.MultiplyPointsByNormal(newPoint) << "\t" << temp2.PlaneVal() - epsilon << "\t" << temp2.MultiplyPointsByNormal(newPoint) - (temp2.PlaneVal() - epsilon) << endl;*/
-            if( temp2.GetDimension() > 0 && 
-          	    ((!relativeDistance && temp2.MultiplyPointsByNormal(newPoint) < temp2.PlaneVal() - epsilon) || 
-          	     (relativeDistance && (temp2.MultiplyPointsByNormal(newPoint) - temp2.PlaneVal())/abs(temp2.PlaneVal()) < - epsilon) ) )
-            {
-                if(DEBUG)
-                {
-/*                            temp.PrintData();*/
-/*                            temp2.PrintData();*/
-/*                            temp.WriteOctaveCodeToPlotSimplex(true);*/
-/*                            temp2.WriteOctaveCodeToPlotSimplex(true);*/
-                    cout << "found two simplices which cause nonconvexity" << endl;
-                    cout << "\%erasing simplex: " << endl;
-                    simplexStack[k].WriteOctaveCodeToPlotSimplex(true);
-/*                    temp.PrintData();*/
-                    cout << "\%erasing simplex: " << endl;
-                    simplexStack[simplexIndex].WriteOctaveCodeToPlotSimplex(true);
-/*                    temp2.PrintData();*/
-                }
-                
-                if( SplitSimplexInTwoUsingPoint(temp2, newPoint, simplexStack, newPointIndex, normalize, 0) )
-                {
-                    simplexStack.erase(simplexStack.begin() + k);
-                    if(simplexIndex >= int(simplexStack.size()))
-                    {
-                        cout << "Error, accessing elements past the end of the stack! File: " << __FILE__ << "  Line: " << __LINE__ << "  Exiting!\n";
-                        exit(0);
-                    }
-                    else if( simplexIndex < 0 )
-                    {
-                        cout << "Error, accessing elements before the start of the stack! File: " << __FILE__ << "  Line: " << __LINE__ << "  Exiting!\n";
-                        exit(0);
-                    }
-                    simplexStack.erase(simplexStack.begin() + simplexIndex);
-                    k -= 2;
-                }
-            }
-        }
-        k++;
-    }
-            
-    return;
-}
 
-void CheckIfAdjacentsAreShadowed( vector<Simplex> & simplexStack, vector<Simplex> & simplicesToSplit, const Simplex & currentSimplex, const vector<double> & newPoint, const int & numObjectives, bool relativeDistance, double epsilon)
+void CheckIfAdjacentsAreShadowed( vector<Simplex *> & simplexStack, vector<Simplex *> & simplicesToSplit, const Simplex * currentSimplex,
+                                  const vector<double> & newPoint, const int & numObjectives, bool relativeDistance, double epsilon, SimplexStore & simplexStore)
 {
-    Simplex temp(numObjectives);
-    Simplex temp2(numObjectives);
-    int a = 0, b = 0;
-    
-/*    epsilon *= epsilon;*/
+    Simplex * temp, *temp2;
+    vector<Simplex *>::iterator pos;
     
 /*    bool DEBUG = true;*/
 
     if(DEBUG)
     {
          cout << "Checking the following simplex for shadowed adjacents: " << endl;
-         currentSimplex.WriteOctaveCodeToPlotSimplex(true);
+         currentSimplex->WriteOctaveCodeToPlotSimplex(true);
     }
     
     for(int i = 0; i < numObjectives; i++)
     {
-        temp2 = currentSimplex.FindAdjacentContainingOriginalPoints(simplexStack, a, b, i, false);
-        if( temp2.GetDimension() > 0 && 
-          	    ((!relativeDistance && temp2.MultiplyPointsByNormal(newPoint) <= temp2.PlaneVal() - epsilon) || 
-          	     (relativeDistance && (temp2.MultiplyPointsByNormal(newPoint) - temp2.PlaneVal())/abs(temp2.PlaneVal()) <= - epsilon) ) )
+        // get the adjacent at facet i
+	temp2 = currentSimplex->Adjacent(i);
+
+	// if it is really there (not null) and the point is in front
+        if( temp2 != nullptr &&  not temp2->IsMarkedForSplit() and 
+          	    ((!relativeDistance && temp2->MultiplyPointsByNormal(newPoint) <= temp2->PlaneVal() - epsilon) || 
+          	     (relativeDistance && (temp2->MultiplyPointsByNormal(newPoint) - temp2->PlaneVal())/abs(temp2->PlaneVal()) <= - epsilon) ) )
         {
             if(DEBUG)
             {
-                cout << "The following simplex needs split" << endl;
-                simplexStack[a].WriteOctaveCodeToPlotSimplex(true);
+                cout << "The following simplex needs split  ID=" <<  temp2->ID() << endl;
+                temp2->WriteOctaveCodeToPlotSimplex(true);
             }
+
             
-            simplicesToSplit.push_back(simplexStack[a]);
-            simplexStack.erase(simplexStack.begin() + a);
-            
-            temp = simplicesToSplit[simplicesToSplit.size()-1];
-            CheckIfAdjacentsAreShadowed( simplexStack, simplicesToSplit, temp, newPoint, numObjectives, relativeDistance, epsilon);
+	    // add it to the list to split
+            simplicesToSplit.push_back(temp2);
+	    temp2->MarkForSplit();
+
+	    pos = find(simplexStack.begin(), simplexStack.end(), temp2);
+	    if (pos != simplexStack.end()) {
+	        simplexStack.erase(pos);
+	    }
+
+	    // check it's adjacents.
+            CheckIfAdjacentsAreShadowed( simplexStack, simplicesToSplit, temp2, newPoint, numObjectives, relativeDistance, epsilon, simplexStore);
             if(DEBUG)
             {
                  cout << "After returning from a recursion, the current simplex is: " << endl;
-                 currentSimplex.WriteOctaveCodeToPlotSimplex(true);
+                 currentSimplex->WriteOctaveCodeToPlotSimplex(true);
             }
         }
     }
@@ -1710,7 +1574,7 @@ void CheckIfAdjacentsAreShadowed( vector<Simplex> & simplexStack, vector<Simplex
     }
 #endif
 
-void scanForRepeats(const vector<Simplex> & simplexStack)
+void scanForRepeats(const vector<Simplex *> & simplexStack)
 {
     vector< vector<double> > v;
     int count = 0;
@@ -1718,14 +1582,14 @@ void scanForRepeats(const vector<Simplex> & simplexStack)
     for(unsigned int i = 0; i < simplexStack.size() - 1; i++)
     {
         v.resize(0);
-        for(int k = 0; k < simplexStack[0].GetDimension(); k++)
+        for(int k = 0; k < simplexStack[0]->GetDimension(); k++)
         {
-            v.push_back(simplexStack[simplexStack.size()-1].GetExtremePoint(k));
+            v.push_back(simplexStack[simplexStack.size()-1]->GetExtremePoint(k));
         }
     
-        for(int j = 0; j < simplexStack[0].GetDimension(); j++)
+        for(int j = 0; j < simplexStack[0]->GetDimension(); j++)
         {
-            v.push_back(simplexStack[i].GetExtremePoint(j));
+            v.push_back(simplexStack[i]->GetExtremePoint(j));
         }
 /*        for(unsigned int j = 0; j < v.size(); j++)*/
 /*        {*/
@@ -1756,13 +1620,13 @@ void scanForRepeats(const vector<Simplex> & simplexStack)
 /*            cout << endl;*/
 /*        }*/
 /*        cout << endl;*/
-        if(count <= simplexStack[0].GetDimension())
+        if(count <= simplexStack[0]->GetDimension())
         {
             cout << "Error, a repeated simplex was just added to the stack! Exiting!\n";
             if(DEBUG)
             {
                 cout << "**************************\nSimplices: " << endl;
-                for(unsigned int j = 0; j < simplexStack.size(); j++) simplexStack[j].WriteOctaveCodeToPlotSimplex(true);
+                for(unsigned int j = 0; j < simplexStack.size(); j++) simplexStack[j]->WriteOctaveCodeToPlotSimplex(true);
                 cout << "**************************" << endl;
             }
             exit(0);
@@ -1770,20 +1634,41 @@ void scanForRepeats(const vector<Simplex> & simplexStack)
     }
 }
 
-void scanForNegativeNormal(const vector<Simplex> & simplexStack)
+void scanForNegativeNormal(const vector<Simplex *> & simplexStack)
 {
-    for(unsigned int i = 0; i < simplexStack.size(); i++)
+    for(size_t i = 0; i < simplexStack.size(); i++)
     {
-        if(!simplexStack[i].IsPositive())
+        if(!simplexStack[i]->IsPositive())
         {
             cout << "There is a simplex on the stack that is not oriented correctly! Exiting!\n";
             cout << "The culprit is: \n";
-            simplexStack[i].WriteOctaveCodeToPlotSimplex(true);
+            simplexStack[i]->WriteOctaveCodeToPlotSimplex(true);
             exit(1);
         }
     }
 }
 
+
+// bennett 7/18
+// changed completely due to adjacency list
+bool PointIsInFrontOfAnAdjacent(const vector<Simplex *> & simplexStack, const Simplex * simp, const vector<double> & point, const double & epsilon)
+{
+    bool retBool = false;
+    int dim = simp->GetDimension();
+    Simplex * temp;
+   
+    int i;
+    for(i=0;i<dim;i++) {
+       temp = simp->Adjacent(i); 
+       if (temp != nullptr) {
+           if(temp->GetDimension() > 0 && temp->MultiplyPointsByNormal(point) < temp->PlaneVal() - epsilon)
+	      return true;
+       }
+    }
+    return false;
+}
+
+/*
 bool PointIsInFrontOfAnAdjacent(const vector<Simplex> & simplexStack, const Simplex & simp, const vector<double> & point, const double & epsilon)
 {
     bool retBool = false;
@@ -1800,16 +1685,17 @@ bool PointIsInFrontOfAnAdjacent(const vector<Simplex> & simplexStack, const Simp
     
     return retBool;
 }
+*/
 
-void WritePoints(const vector<Simplex> & simplexStack)
+void WritePoints(const vector<Simplex *> & simplexStack)
 {
     vector< vector<double> > v;
     
     for(unsigned int i = 0; i < simplexStack.size(); i++)
     {
-        for(int j = 0; j < simplexStack[0].GetDimension(); j++) 
+        for(int j = 0; j < simplexStack[0]->GetDimension(); j++) 
         {
-            if(!simplexStack[i].ExtremesAreDummies()[j]) v.push_back(simplexStack[i].GetExtremePoint(j));
+            if(!simplexStack[i]->ExtremesAreDummies()[j]) v.push_back(simplexStack[i]->GetExtremePoint(j));
         }
     }
     sort(v.begin(), v.end());
@@ -1818,7 +1704,7 @@ void WritePoints(const vector<Simplex> & simplexStack)
     for(unsigned int i = 0; i < v.size(); i++)
     {
         cout << "[ ";
-        for(int j = 0; j < simplexStack[0].GetDimension(); j++) cout << v[i][j] << " ";
+        for(int j = 0; j < simplexStack[0]->GetDimension(); j++) cout << v[i][j] << " ";
         cout << "]" << endl;
     }
     cout << "***********************************\nTotal number of extreme points: " << v.size() << endl;
@@ -1898,14 +1784,20 @@ double MultiobjectiveProblem::Epsilon(void) const{
     return epsilon;
 }
 
-void deleteRepeats(vector<Simplex> & simplexStack, int startingScanIndex)
+void deleteRepeats(vector<Simplex *> & simplexStack, int startingScanIndex)
 {
     unsigned int i = startingScanIndex;
     
     while(i < simplexStack.size())
     {
-        if(simplexStack[i].deleteRepeats(simplexStack, i + 1)) simplexStack.erase(simplexStack.begin() + i);
-        else i++;
+        if(simplexStack[i]->deleteRepeats(simplexStack, i + 1)){
+	    cerr << " ***********************************************" << endl;
+	    cerr << "Deleting a repeat " << endl;
+	    cerr << " ***********************************************" << endl;
+	    simplexStack.erase(simplexStack.begin() + i);
+	} else {
+	   i++;
+	}
     }
     
     return;

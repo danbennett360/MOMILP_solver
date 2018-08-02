@@ -1,6 +1,6 @@
 
 ifdef CPLEX
-        CPLEX_DIR=$(HOME)/ILOG/CPLEX_Studio126/cplex
+        CPLEX_DIR = /opt/ibm/ILOG/CPLEX_Studio1271/cplex
         CPLEXFLAGS1 = -L$(CPLEX_DIR)/lib/x86-64_linux/static_pic -lcplex
         CPLEXFLAGS2 = -DCPLEX -I$(CPLEX_DIR)/include/ilcplex
         GLPKFLAGS =
@@ -10,7 +10,7 @@ else
         GLPKFLAGS = -lglpk
 endif
 
-HOMEBIN=${HOME}/Dropbox\ \(Edinboro\ University\)/Edinboro/Teaching/Student_Projects/Lesseski
+HOMEBIN=.
 
 
 CC=g++
@@ -24,8 +24,8 @@ LDFLAGS= -O3 -g $(CPLEXFLAGS1) $(GLPKFLAGS) -lpthread -lm -std=c++11 -Wall -Wext
 CFLAGS=  -O3 -g $(CPLEXFLAGS2) -std=c++11 -Wall -Wextra -Wuninitialized -Wshadow
 
 
-OBJ =  	    multiobjective_solver.o problem_class.o simplex_class.o sydneys_class.o point_class.o
-HEADER = 	multiobjective_solver.h problem_class.h simplex_class.h sydneys_class.h point_class.h
+OBJ =  	    multiobjective_solver.o problem_class.o simplex_class.o sydneys_class.o point_class.o SimplexStore.o
+HEADER = 	multiobjective_solver.h problem_class.h simplex_class.h sydneys_class.h point_class.h SimplexStore.h
 
 all: ${HOMEBIN}/MOS
 

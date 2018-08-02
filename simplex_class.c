@@ -14,12 +14,88 @@ of nondominated solutions.*/
 
 #include "simplex_class.h"
 
+int Simplex::nextID = 0;
+double Simplex::epsilon = .0000001;
+#ifdef CPLEX
+    double Simplex::infinity = CPX_INFBOUND;
+#else
+    double Simplex::infinity = 100000000000000000000.;
+#endif
+
+// need a reference to the point vector  so we can
+// gain access to our points.
+vector<Point> * Simplex::pointVector = nullptr;
+
+vector<Point> * Simplex::GetPointVector(void) const {
+   return pointVector;
+}
+
+void Simplex::SetPointVector(vector<Point> * pv) {
+   pointVector = pv;
+   return;
+}
+
 Simplex::Simplex(int i)
 {
     dimension = i;
     epsilon = EPSILON;
+    id = nextID;
+    nextID++;
 }
 
+int Simplex::ID(void) const {
+   return id;
+}
+
+Simplex::Simplex(const Simplex * other) {
+    id = nextID;
+    nextID++;
+
+    dimension = other->dimension;
+    normal = other->normal;
+    extremesAreDummies = other->extremesAreDummies;
+    planeVal = other->planeVal;
+    isPositive = other->isPositive;
+    numDummies = other->numDummies;
+    showNormalsInPlots = other->showNormalsInPlots;
+    saveForSolution = other->saveForSolution;
+    adj = other->adj;
+    points = other->points;
+    split = other->split;
+
+    return;
+}
+
+void Simplex::AddExtreme(int pointPos, bool normalize) {
+   bool isDummy = false;
+   int i = 0;
+
+   if(int(points.size()) < dimension)
+    {
+        points.push_back(pointPos);
+        while(i < dimension && !isDummy)
+        {
+            if(pointVector->at(pointPos).Data()[i] >= infinity) isDummy = true;
+            i++;
+        }
+        extremesAreDummies.push_back(isDummy);
+        if(isDummy) numDummies++;
+
+        if(points.size() == size_t(dimension))
+        {
+            GenerateNormal();
+            if(normalize)  NormalizeNormal();
+            planeVal = MultiplyPointsByNormal(pointVector->at(points[0]).Data());
+        }
+    }
+    else
+    {
+        cout << "Simplex already contains maximum number of extremes, ignoring point!" << endl;
+    }
+
+}
+
+/*
 void Simplex::AddExtreme(const vector<double> & v, bool normalize)
 {
    bool isDummy = false;
@@ -50,6 +126,7 @@ void Simplex::AddExtreme(const vector<double> & v, bool normalize)
 
     return;
 }
+*/
 
 void Simplex::GenerateNormal()
 {
@@ -59,16 +136,22 @@ void Simplex::GenerateNormal()
 /*    bool allSameSign = true;*/
 /*    bool isZero = true;*/
     double val = 0.;
-    
+    double t1, t2;
+   
+
     for(int i = 0; i < dimension-1; i++)
     {
         temp.resize(0);
         for(int j = 0; j < dimension; j++)
         {
-            temp.push_back(extremePoints[i][j] - extremePoints[dimension-1][j]);
+            t1 = pointVector->at(points[i]).Data()[j];
+            t2 = pointVector->at(points[dimension-1]).Data()[j];
+            temp.push_back(t1-t2);
         }
         vectorsInHyperplane.push_back(temp);
     }
+
+    normal.resize(0);
     
     for(int k = 0; k < dimension; k++)
     {
@@ -112,7 +195,7 @@ void Simplex::GenerateNormal()
         cout << "\%Calculated normal: ";
         
         for(int i = 0; i < dimension; i++) cout << normal[i] << "\t";
-        cout << endl;
+        cout << endl << endl;
     }
     
     return;
@@ -166,7 +249,7 @@ void Simplex::PrintData() const
         cout << "Extreme Point " << i+1 << ": " << endl;
         for(int j = 0; j < dimension; j++)
         {
-            cout << extremePoints[i][j] << "\t";
+		cout << pointVector->at(points[i]).Data()[j] << "\t";
         }
         cout << endl;
     }
@@ -221,7 +304,7 @@ void Simplex::NormalizeNormal()
 
 void Simplex::Reset()
 {
-    extremePoints.resize(0);
+    points.resize(0);
     normal.resize(0);
     extremesAreDummies.resize(0);
     numDummies = 0;
@@ -255,7 +338,7 @@ double Simplex::PlaneVal()
 
 vector<double> Simplex::GetExtremePoint(int i) const
 {
-    return extremePoints[i];
+    return pointVector->at(points[i]).Data();
 }
 
 void Simplex::WriteOctaveCodeToPlotSimplex(bool a) const
@@ -267,7 +350,7 @@ void Simplex::WriteOctaveCodeToPlotSimplex(bool a) const
     {
         for(int j = 0; j < dimension; j++)
         {
-            cout << extremePoints[j][i] << " ";
+		cout << pointVector->at(j).Data()[i] << " ";
         }
         cout << "], [";
     }
@@ -282,7 +365,11 @@ void Simplex::WriteOctaveCodeToPlotSimplex(bool a) const
     
     for(int i = 0; i < dimension; i++)
     {
-        for(int j = 0; j < dimension; j++) midpoint[i] += (1./3.)*extremePoints[j][i];
+        double t;
+        for(int j = 0; j < dimension; j++) {
+             t = pointVector->at(j).Data()[i];
+             midpoint[i] += (1./3.)*t;
+        }
     }
     
     if(showNormalsInPlots)
@@ -319,10 +406,16 @@ bool Simplex::IsPositive() const
     return isPositive;
 }
 
-Simplex Simplex::FindAdjacentContainingOriginalPoints(const vector<Simplex> & simplices, int & simplexIndex, int & newPointIndex, int ignoreIndex, bool isIn) const
-{
-    Simplex retSimplex(-1);
-    Simplex temp;
+
+// bennett: I bet this needs rewritten
+// I think we only need to look at the adjacent
+Simplex *  Simplex::FindAdjacentContainingOriginalPoints(const vector<Simplex * > & simplices, int & simplexIndex, int & newPointIndex, int ignoreIndex, bool isIn) const {
+
+    cerr << "*****************************************************" << endl;
+    cerr << " In FindAdjacentContainingOriginalPoints, check to see if this routine needs rewritten " << endl;
+    cerr << "*****************************************************" << endl;
+    Simplex * retSimplex= nullptr;
+    Simplex * temp;
     vector<double> p;
     int k = 0, l = 0, m = 0;
     bool foundIt = false;
@@ -364,7 +457,7 @@ Simplex Simplex::FindAdjacentContainingOriginalPoints(const vector<Simplex> & si
 /*                cout << "^^^^^^^^^^^^" << endl;*/
 /*                PrintData();*/
 /*                cout << "^^^^^^^^^^^^" << endl;*/
-/*                temp.PrintData();*/
+/*                temp->PrintData();*/
 /*                cout << "^^^^^^^^^^^^" << endl;*/
 /*            }*/
             for(int i = 0; i < dimension; i++) matches[i] = false;
@@ -379,7 +472,7 @@ Simplex Simplex::FindAdjacentContainingOriginalPoints(const vector<Simplex> & si
                     m = 0;
                     while(m < dimension)
                     {
-                        tempBool = (GetExtremePoint(l) == temp.GetExtremePoint(m));
+                        tempBool = (GetExtremePoint(l) == temp->GetExtremePoint(m));
                         couldBeIt = max(couldBeIt, tempBool);
                         if(tempBool && !matches[m]) matches[m] = true;
 /*                        if(DEBUG) cout << "tempBool: " << tempBool << "\tl:" << l << "\tm:" << m << "\tmatches[m]: " << matches[m] << endl; */
@@ -406,14 +499,14 @@ Simplex Simplex::FindAdjacentContainingOriginalPoints(const vector<Simplex> & si
     
     if(DEBUG) 
     {
-        if(retSimplex.GetDimension() > 0)
+        if(retSimplex!= nullptr)
         {
             cout << "\%The adjacent simplex contains: " << endl;
             
             for(int i = 0; i < dimension; i++)
             {
                 cout << "\%\t" ;
-                for(int j = 0; j < dimension; j++) cout << retSimplex.GetExtremePoint(i)[j] << "\t";
+                for(int j = 0; j < dimension; j++) cout << retSimplex->GetExtremePoint(i)[j] << "\t";
                 cout << endl;
             }
         }
@@ -447,7 +540,12 @@ bool CompareDoubleVectors(const vector<double> & v1, const vector<double> & v2)
 
 vector< vector<double> >  Simplex::GetExtremePoints() const
 {
-    return extremePoints;
+    vector<vector<double> > rv;
+    for(int i=0;i<dimension;i++) {
+       rv.push_back(pointVector->at(points[i]).Data());
+    }
+    return rv;
+
 }
 
 int Simplex::GetNumDummyPoints()
@@ -462,8 +560,8 @@ vector<bool> Simplex::ExtremesAreDummies() const
 
 int Simplex::GetPointIndex(const vector<double> & point)
 {
-    int i = 0;
-    while(extremePoints[i] != point) i++;
+    size_t i = 0;
+    while(i < points.size() and pointVector->at(points[i]).Data() != point) i++;
     return i;
 }
 
@@ -494,7 +592,111 @@ void Simplex::PrintNormal()
     return;
 }
 
-bool Simplex::isInSubsetOfStack(const vector<Simplex> & simplexStack, int startingScanIndex)
+// new routines added by bennett for adjacency
+
+// bennett 7/24/18
+
+
+// This is mostly for taking care of myself.  I know which
+// facet I am adding an ajdacent to.
+//
+// There will be another one which takes a list of point indexes
+// and a simplex pointer and adds that as an adjacent.  This will take much
+// more work.
+//
+void Simplex::Adjacent(int i, Simplex * a) {
+    while ( adj.size() <= size_t(i)) {
+       adj.push_back(nullptr);
+    }
+    adj[i] = a;
+    return;
+}
+
+// just give me the ith adjacent simplex.
+Simplex * Simplex::Adjacent(int i) const {
+    return adj[i];
+}
+
+// Remove a simplex as adjacent. 
+// Call this routine when the adjacent simplex is to be deleted.
+void Simplex::RemoveAdjacent(Simplex * s){
+    size_t i;
+    for(i=0;i<adj.size();i++) {
+       if (adj[i] == s) {
+          adj[i] = nullptr;
+       }
+    }
+    return;
+}
+
+// add the point indicies to the simplex.  
+// This should eventually replace AddExtreme();
+void Simplex::Points(vector<int> p, bool normalize){
+    points = p;
+    GenerateNormal();
+    if(normalize)  NormalizeNormal();
+    planeVal = MultiplyPointsByNormal(pointVector->at(points[0]).Data());
+
+    // for set difference later.
+    sort(points.begin(), points.end());
+    return;
+}
+
+void Simplex::MarkForSplit(void){
+    split = true;
+    return;
+}
+
+bool Simplex::IsMarkedForSplit(void) const{
+    return split;
+}
+
+vector<int> DoSetDiff(vector<int> & a, vector<int> & b) {
+    vector<int> rv;
+    set_difference(a.begin(), a.end(), b.begin(), b.end(), inserter(rv, rv.begin()));
+    return rv;
+}
+
+int FindPos(int value, vector<int> & points) {
+    size_t i = 0;
+    while (i < points.size() and points[i] != value) {
+       i++;
+    }
+    return i;
+
+}
+
+void Simplex::Adjacent( Simplex * b){
+    vector<int> da, db;
+    int pos;
+
+    if (b == this) {
+       cout <<"Refuse to mark myself as adjacent to myself" << endl;
+       return;
+
+    }
+
+    da = DoSetDiff(points, b->points);
+    if (da.size() == 1) {
+       db = DoSetDiff(b->points, points);
+       pos = FindPos(da[0],points);
+       if (not split) {
+          adj[pos] = b;
+       }
+       pos = FindPos(db[0],b->points);
+       if (not b->split) {
+           b->adj[pos] = this;
+       }
+    }
+
+    return;
+}
+
+
+// below here needs to be fixed, extremePoints[] needs to go away
+
+
+bool Simplex::isInSubsetOfStack(const vector<Simplex *> & simplexStack, int startingScanIndex)
 {
     vector< vector<double> > v;
     int count = 0;
@@ -503,18 +705,19 @@ bool Simplex::isInSubsetOfStack(const vector<Simplex> & simplexStack, int starti
     for(unsigned int i = startingScanIndex; i < simplexStack.size(); i++)
     {
         v.resize(0);
-        for(int k = 0; k < simplexStack[0].GetDimension(); k++)
+        for(int k = 0; k < simplexStack[0]->GetDimension(); k++)
         {
-            v.push_back(extremePoints[k]);
+            v.push_back(pointVector->at(k).Data()) ;
+            //v.push_back(extremePoints[k]);
         }
     
-        for(int j = 0; j < simplexStack[0].GetDimension(); j++)
+        for(int j = 0; j < simplexStack[0]->GetDimension(); j++)
         {
-            v.push_back(simplexStack[i].GetExtremePoint(j));
+            v.push_back(simplexStack[i]->GetExtremePoint(j));
         }
         sort(v.begin(), v.end());
         count = unique(v.begin(), v.end()) - v.begin();
-        if(count <= simplexStack[0].GetDimension())
+        if(count <= simplexStack[0]->GetDimension())
         {
             cout << "The new simplex is already here! Don't add it!\n";
             retBool = true;
@@ -525,7 +728,7 @@ bool Simplex::isInSubsetOfStack(const vector<Simplex> & simplexStack, int starti
     return retBool;
 }
 
-bool Simplex::deleteRepeats(vector<Simplex> & simplexStack, int startingScanIndex)
+bool Simplex::deleteRepeats(vector<Simplex*> & simplexStack, int startingScanIndex)
 {
     vector< vector<double> > v;
     int count = 0;
@@ -535,18 +738,19 @@ bool Simplex::deleteRepeats(vector<Simplex> & simplexStack, int startingScanInde
     while(i < simplexStack.size())
     {
         v.resize(0);
-        for(int k = 0; k < simplexStack[0].GetDimension(); k++)
+        for(int k = 0; k < simplexStack[0]->GetDimension(); k++)
         {
-            v.push_back(extremePoints[k]);
+            v.push_back(pointVector->at(k).Data()) ;
+            //v.push_back(extremePoints[k]);
         }
     
-        for(int j = 0; j < simplexStack[0].GetDimension(); j++)
+        for(int j = 0; j < simplexStack[0]->GetDimension(); j++)
         {
-            v.push_back(simplexStack[i].GetExtremePoint(j));
+            v.push_back(simplexStack[i]->GetExtremePoint(j));
         }
         sort(v.begin(), v.end());
         count = unique(v.begin(), v.end()) - v.begin();
-        if(count <= simplexStack[0].GetDimension())
+        if(count <= simplexStack[0]->GetDimension())
         {
             if(DEBUG) cout << "Deleting a repeated simplex.\n";
             simplexStack.erase(simplexStack.begin() + i);
