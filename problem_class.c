@@ -1376,6 +1376,8 @@ void  MultiobjectiveProblem::DoSplit(vector<Simplex *> & simplexStack, SimplexSt
     vector<Simplex *> newList;
     Simplex * tmp;
 
+    static int splits = 0;
+  
     // save point 
     Point p =MakePoint(point);
     pos = simplexStore.AddPoint(p);
