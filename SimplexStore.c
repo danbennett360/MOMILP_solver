@@ -53,10 +53,6 @@ Simplex* SimplexStore::AddSimplex(vector<int> simplexPoints, bool normalize){
 
     // only need to do this once  but do it before anything else.
     if (nullptr == s->GetPointVector()){
-        cerr << endl;
-        cerr << "TODO:, make sure normalize is right SimplexStore::AddSymplex"
-	     << endl;
-        cerr << endl;
         s->SetPointVector(&points);
     }
 
@@ -74,7 +70,6 @@ Simplex* SimplexStore::AddSimplex(vector<int> simplexPoints, bool normalize){
     s->Adjacent(i, nullptr);
 
     simplicies.push_back(s);
-
 
     return s;
 }

@@ -1,8 +1,10 @@
-
 #include <iostream>
 #include <iomanip>
 #include <fstream>
 #include "point_class.h"
+
+Point::Point() {
+}
 
 Point::Point(const vector<double> & p, double *vals, int valsSize, double epsilon )
 {
@@ -59,4 +61,9 @@ void Point::Epsilon(double e) {
 // bennett 6/18 for ==
 double Point::Epsilon(void) const {
     return pointCloseEpsilon;
+}
+
+// bennett 7/18   The simplex class needs quick access to this data.
+vector<double> Point::Data(void) const{
+	return point;
 }

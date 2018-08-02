@@ -17,6 +17,7 @@ of nondominated solutions.*/
 #include "simplex_class.h"
 #include "problem_class.h"
 #include "multiobjective_solver.h"
+#include "SimplexStore.h"
 
 bool DEBUG = false;
 bool SCAN_FOR_REPEATS = false;
@@ -321,8 +322,9 @@ int main(int argc, char **argv)
         #endif
     }
   	
-  	if(DEBUG) cout << "finding initial simplices" << endl;
-    vector<Simplex> t = myProb.DichotomicSearch();
+        if(DEBUG) cout << "finding initial simplices" << endl;
+        SimplexStore t;
+	myProb.DichotomicSearch(t);
   				
   	/******************************************************************/
     

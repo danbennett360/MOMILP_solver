@@ -24,6 +24,8 @@ of nondominated solutions.*/
 #include "simplex_class.h"
 #include "multiobjective_solver.h"
 
+#include "SimplexStore.h"
+
 using namespace std;
 
 class MultiobjectiveProblem 
@@ -47,7 +49,8 @@ class MultiobjectiveProblem
     	vector<double> weightedCoefs;
     	vector<int> objectiveColIndices;
     	vector<int> objectiveRowIndices;
-    	vector<Simplex> MeatOfDichotomicSearch();
+    	//vector<Simplex *> MeatOfDichotomicSearch();
+    	void MeatOfDichotomicSearch(SimplexStore &);
 //    	void PostProcessDichotomicSearch(vector<Simplex> & simplices);
     	void ChangeTempObjCoefs(int i);
     	void ChangeTempObjCoefs(const vector<double> & v);
@@ -72,6 +75,14 @@ class MultiobjectiveProblem
         int maxIterations = 100000;
         bool relativeDistance = false;
         bool interiorPoint = false;
+
+	// bennett private member functions
+	Point MakePoint(vector<double> point);
+	void AddFirstSimplex(SimplexStore & store, vector<vector<double> > & extremes, vector<Simplex *> & simplexStack);
+	void DoInitialSplits(SimplexStore & store, vector<vector<double> > & extremes, vector<Simplex *> & simplexStack);
+	void DumpPoints(SimplexStore & store);
+        void DoSplit(vector<Simplex *> & simplexStack, SimplexStore & simplexStore, vector<Simplex *> & simplicesToSplit, vector<double> & point);
+
   public:
         #ifdef CPLEX
         	void 	    SetEnv(CPXENVptr e);
@@ -96,8 +107,10 @@ class MultiobjectiveProblem
 	    bool        StoreObjectivesInMainProb();
 	    bool        NormalizeObjectiveMultipliers();
 	    bool        UseLexicographicOptimization();
-	    vector<Simplex> DichotomicSearch();
-	    vector<Simplex> DichotomicSearch(const vector<int> & indices, const vector<int> & vals);
+	    void DichotomicSearch(SimplexStore &);
+	    // does not seem to be implemented.  Will need to change anyway, I suspect it will need
+	    // to have a SimplexStore passed in.
+	    //SimplexStore DichotomicSearch(const vector<int> & indices, const vector<int> & vals);
 	    vector<double> LexicographicMinimization(int i);
 
 	    // bennett 7/18
@@ -105,28 +118,31 @@ class MultiobjectiveProblem
 	    double	Epsilon(void) const;
 };
 
-void AddNewSimplices(   vector<Simplex> & simplexStack, const Simplex & currentSimplex, const vector<double> & point, bool normalize, bool useAdjacent, 
-                        bool relativeDistance, double epsilon);
-                        
-double GetAngleBetween(const Simplex & s1, const Simplex & s2, bool normalize);
+/*
+void AddNewSimplices(   vector<Simplex *> & simplexStack, const Simplex * currentSimplex, const vector<double> & point, bool normalize, bool useAdjacent, 
+                        bool relativeDistance, double epsilon, SimplexStore & simplexStore);
+*/
+/*
+bool SplitSimplexInTwoUsingPoint(const Simplex * s, const vector<double> & point, vector<Simplex *> & simplexStack, int newPointIndex, bool normalize, int startingScanIndex);
+void CheckForSimplicesThatNeedReplaced( vector<Simplex *> & simplexStack, int & simplexIndex, int & newPointIndex, const int & numObjectives, 
+                                        const vector<double> & newPoint, bool normalize, bool relativeDistance, double epsilon);
+*/
+
+bool PointIsInFrontOfAnAdjacent(const vector<Simplex *> & simplexStack, const Simplex * simp, const vector<double> & point, const double & epsilon);
+
+double GetAngleBetween(const Simplex * s1, const Simplex * s2, bool normalize);
 
 double GetVectorMagnitude(const vector<double> & v);
-
-bool SplitSimplexInTwoUsingPoint(const Simplex & s, const vector<double> & point, vector<Simplex> & simplexStack, int newPointIndex, bool normalize, int startingScanIndex);
-
-void CheckForSimplicesThatNeedReplaced( vector<Simplex> & simplexStack, int & simplexIndex, int & newPointIndex, const int & numObjectives, 
-                                        const vector<double> & newPoint, bool normalize, bool relativeDistance, double epsilon);
                                         
-void CheckIfAdjacentsAreShadowed( vector<Simplex> & simplexStack, vector<Simplex> & simplicesToSplit, const Simplex & currentSimplex, 
-                                  const vector<double> & newPoint, const int & numObjectives, bool relativeDistance, double epsilon);
+void CheckIfAdjacentsAreShadowed( vector<Simplex *> & simplexStack, vector<Simplex *> & simplicesToSplit, const Simplex * currentSimplex, 
+                                  const vector<double> & newPoint, const int & numObjectives, bool relativeDistance, double epsilon, SimplexStore & simplexStore);
                                         
-void scanForRepeats(const vector<Simplex> & simplexStack);
+void scanForRepeats(const vector<Simplex *> & simplexStack);
 
-void scanForNegativeNormal(const vector<Simplex> & simplexStack);
+void scanForNegativeNormal(const vector<Simplex *> & simplexStack);
 
-bool PointIsInFrontOfAnAdjacent(const vector<Simplex> & simplexStack, const Simplex & simp, const vector<double> & point, const double & epsilon);
 
-void WritePoints(const vector<Simplex> & simplexStack); 
+void WritePoints(const vector<Simplex *> & simplexStack); 
 
 #ifdef CPLEX
     vector<string> GetVarNames(const CPXENVptr & env, const CPXLPptr & lp, int numCols);
@@ -134,7 +150,7 @@ void WritePoints(const vector<Simplex> & simplexStack);
     vector<string> GetVarNames(glp_prob *lp, int numCols);
 #endif
 
-void deleteRepeats(vector<Simplex> & simplexStack, int startingScanIndex);
+void deleteRepeats(vector<Simplex *> & simplexStack, int startingScanIndex);
 
 void CheckForDomination(const vector< vector<double> > & points, const double & epsilon);
 
